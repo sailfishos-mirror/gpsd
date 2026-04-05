@@ -458,9 +458,9 @@ void rtcm3_unpack(const struct gps_context_t *context,
         rtcm->rtcmtypes.rtcm3_1001.header.tow = ugrab(30);
         rtcm->rtcmtypes.rtcm3_1001.header.sync = (bool)ugrab(1);
         n = ugrab(5);
-        if ((8 + (8 * n)) > rtcm->length) {
+        if ((8 + (7 * n)) > rtcm->length) {
             // not exactly: 8 + (7.25 * n)
-            bad_len = 8 + (8 * n);
+            bad_len = 8 + (7 * n);
             break;
         }
         rtcm->rtcmtypes.rtcm3_1001.header.satcount = n;
@@ -484,9 +484,9 @@ void rtcm3_unpack(const struct gps_context_t *context,
         rtcm->rtcmtypes.rtcm3_1002.header.tow = ugrab(30);
         rtcm->rtcmtypes.rtcm3_1002.header.sync = (bool)ugrab(1);
         n = ugrab(5);
-        if ((8 + (10 * n)) > rtcm->length) {
+        if ((8 + (9 * n)) > rtcm->length) {
             // not exactly: 8 + (9.25 * n)
-            bad_len = 8 + (10 * n);
+            bad_len = 8 + (9 * n);
             break;
         }
         rtcm->rtcmtypes.rtcm3_1002.header.satcount = n;
@@ -511,7 +511,13 @@ void rtcm3_unpack(const struct gps_context_t *context,
         rtcm->rtcmtypes.rtcm3_1003.header.station_id = ugrab(12);
         rtcm->rtcmtypes.rtcm3_1003.header.tow = ugrab(30);
         rtcm->rtcmtypes.rtcm3_1003.header.sync = (bool)ugrab(1);
-        rtcm->rtcmtypes.rtcm3_1003.header.satcount = ugrab(5);
+        n = ugrab(5);
+        if ((8 + (12 * n)) > rtcm->length) {
+            // not exactly: 8 + (12.625 * n)
+            bad_len = 8 + (12 * n);
+            break;
+        }
+        rtcm->rtcmtypes.rtcm3_1003.header.satcount = n;
         rtcm->rtcmtypes.rtcm3_1003.header.smoothing = (bool)ugrab(1);
         rtcm->rtcmtypes.rtcm3_1003.header.interval = ugrab(3);
 #define R1003 rtcm->rtcmtypes.rtcm3_1003.rtk_data[i]
@@ -540,7 +546,13 @@ void rtcm3_unpack(const struct gps_context_t *context,
         rtcm->rtcmtypes.rtcm3_1004.header.station_id = ugrab(12);
         rtcm->rtcmtypes.rtcm3_1004.header.tow = ugrab(30);
         rtcm->rtcmtypes.rtcm3_1004.header.sync = (bool)ugrab(1);
-        rtcm->rtcmtypes.rtcm3_1004.header.satcount = ugrab(5);
+        n = ugrab(5);
+        if ((8 + (15 * n)) > rtcm->length) {
+            // not exactly: 8 + (15.625 * n)
+            bad_len = 8 + (15 * n);
+            break;
+        }
+        rtcm->rtcmtypes.rtcm3_1004.header.satcount = n;
         rtcm->rtcmtypes.rtcm3_1004.header.smoothing = (bool)ugrab(1);
         rtcm->rtcmtypes.rtcm3_1004.header.interval = ugrab(3);
 #define R1004 rtcm->rtcmtypes.rtcm3_1004.rtk_data[i]
@@ -565,6 +577,10 @@ void rtcm3_unpack(const struct gps_context_t *context,
     case 1005:
         msg_name = "Stationary Antenna Reference Point, No Height Information";
         // 19 bytes
+        if (19 != rtcm->length) {
+            bad_len = 19;
+            break;
+        }
 #define R1005 rtcm->rtcmtypes.rtcm3_1005
         R1005.station_id = ugrab(12);
         ugrab(6);               // reserved
@@ -583,6 +599,10 @@ void rtcm3_unpack(const struct gps_context_t *context,
     case 1006:
         msg_name = "Stationary Antenna Reference Point, w/ Height Info";
         // 21 bytes
+        if (21 != rtcm->length) {
+            bad_len = 21;
+            break;
+        }
 #define R1006 rtcm->rtcmtypes.rtcm3_1006
         R1006.station_id = ugrab(12);
         (void)ugrab(6);         // reserved
@@ -644,7 +664,13 @@ void rtcm3_unpack(const struct gps_context_t *context,
         rtcm->rtcmtypes.rtcm3_1009.header.station_id = ugrab(12);
         rtcm->rtcmtypes.rtcm3_1009.header.tow = ugrab(27);
         rtcm->rtcmtypes.rtcm3_1009.header.sync = (bool)ugrab(1);
-        rtcm->rtcmtypes.rtcm3_1009.header.satcount = ugrab(5);
+        n = ugrab(5);
+        if ((7 + (8 * n)) > rtcm->length) {
+            // not exactly: 7.625 + (8 * n)
+            bad_len = 7 + (8 * n);
+            break;
+        }
+        rtcm->rtcmtypes.rtcm3_1009.header.satcount = n;
         rtcm->rtcmtypes.rtcm3_1009.header.smoothing = (bool)ugrab(1);
         rtcm->rtcmtypes.rtcm3_1009.header.interval = ugrab(3);
 #define R1009 rtcm->rtcmtypes.rtcm3_1009.rtk_data[i]
@@ -666,9 +692,15 @@ void rtcm3_unpack(const struct gps_context_t *context,
             (unsigned short)ugrab(12);
         rtcm->rtcmtypes.rtcm3_1010.header.tow = ugrab(27);
         rtcm->rtcmtypes.rtcm3_1010.header.sync = (bool)ugrab(1);
-        rtcm->rtcmtypes.rtcm3_1010.header.satcount = (unsigned short)ugrab(5);
+        n = ugrab(5);
+        if ((7 + (9 * n)) > rtcm->length) {
+            // not exactly: 7.625 + (9.875 * n)
+            bad_len = 7 + (9 * n);
+            break;
+        }
+        rtcm->rtcmtypes.rtcm3_1010.header.satcount = n;
         rtcm->rtcmtypes.rtcm3_1010.header.smoothing = (bool)ugrab(1);
-        rtcm->rtcmtypes.rtcm3_1010.header.interval = (unsigned short)ugrab(3);
+        rtcm->rtcmtypes.rtcm3_1010.header.interval = ugrab(3);
 #define R1010 rtcm->rtcmtypes.rtcm3_1010.rtk_data[i]
         for (i = 0; i < rtcm->rtcmtypes.rtcm3_1010.header.satcount; i++) {
             R1010.ident = (unsigned short)ugrab(6);
@@ -690,9 +722,15 @@ void rtcm3_unpack(const struct gps_context_t *context,
             (unsigned short)ugrab(12);
         rtcm->rtcmtypes.rtcm3_1011.header.tow = ugrab(27);
         rtcm->rtcmtypes.rtcm3_1011.header.sync = (bool)ugrab(1);
-        rtcm->rtcmtypes.rtcm3_1011.header.satcount = (unsigned short)ugrab(5);
+        n = ugrab(5);
+        if ((8 + (13 * n)) > rtcm->length) {
+            // not exactly: 8 + (13.325 * n)
+            bad_len = 8 + (13 * n);
+            break;
+        }
+        rtcm->rtcmtypes.rtcm3_1011.header.satcount = n;
         rtcm->rtcmtypes.rtcm3_1011.header.smoothing = (bool)ugrab(1);
-        rtcm->rtcmtypes.rtcm3_1011.header.interval = (unsigned short)ugrab(3);
+        rtcm->rtcmtypes.rtcm3_1011.header.interval = ugrab(3);
 #define R1011 rtcm->rtcmtypes.rtcm3_1011.rtk_data[i]
         for (i = 0; i < rtcm->rtcmtypes.rtcm3_1011.header.satcount; i++) {
             R1011.ident = (unsigned short)ugrab(6);
@@ -717,25 +755,30 @@ void rtcm3_unpack(const struct gps_context_t *context,
 
     case 1012:
         msg_name = "GLONASS Extended RTK, L1 & L2";
-        rtcm->rtcmtypes.rtcm3_1012.header.station_id =
-            (unsigned short)ugrab(12);
+        rtcm->rtcmtypes.rtcm3_1012.header.station_id = ugrab(12);
         rtcm->rtcmtypes.rtcm3_1012.header.tow = ugrab(27);
         rtcm->rtcmtypes.rtcm3_1012.header.sync = (bool)ugrab(1);
-        rtcm->rtcmtypes.rtcm3_1012.header.satcount = (unsigned short)ugrab(5);
+        n = ugrab(5);
+        if ((8 + (16 * n)) > rtcm->length) {
+            // not exactly: 8 + (16.25 * n)
+            bad_len = 8 + (16 * n);
+            break;
+        }
+        rtcm->rtcmtypes.rtcm3_1012.header.satcount = n;
         rtcm->rtcmtypes.rtcm3_1012.header.smoothing = (bool)ugrab(1);
-        rtcm->rtcmtypes.rtcm3_1012.header.interval = (unsigned short)ugrab(3);
+        rtcm->rtcmtypes.rtcm3_1012.header.interval = ugrab(3);
 #define R1012 rtcm->rtcmtypes.rtcm3_1012.rtk_data[i]
         for (i = 0; i < rtcm->rtcmtypes.rtcm3_1012.header.satcount; i++) {
             unsigned rangeincr;
 
-            R1012.ident = (unsigned short)ugrab(6);
+            R1012.ident = ugrab(6);
             R1012.L1.indicator = (bool)ugrab(1);
             R1012.L1.channel = (short)ugrab(5) - GLONASS_CHANNEL_BASE;
             R1012.L1.pseudorange = ugrab(25) * GLONASS_PSEUDORANGE_RESOLUTION;
             RANGEDIFF(R1012.L1, 20);
-            R1012.L1.locktime = (unsigned char)ugrab(7);
-            R1012.L1.ambiguity = (unsigned char)ugrab(7);
-            R1012.L1.CNR = (unsigned char)ugrab(8) * CARRIER_NOISE_RATIO_UNITS;
+            R1012.L1.locktime = ugrab(7);
+            R1012.L1.ambiguity = ugrab(7);
+            R1012.L1.CNR = ugrab(8) * CARRIER_NOISE_RATIO_UNITS;
             R1012.L2.indicator = (bool)ugrab(2);
             rangeincr = ugrab(14);
             if (rangeincr == GLONASS_INVALID_RANGEINCR) {
@@ -746,7 +789,7 @@ void rtcm3_unpack(const struct gps_context_t *context,
             }
             RANGEDIFF(R1012.L2, 20);
             R1012.L2.locktime = (unsigned char)sgrab(7);
-            R1012.L2.CNR = (unsigned char)ugrab(8) * CARRIER_NOISE_RATIO_UNITS;
+            R1012.L2.CNR = ugrab(8) * CARRIER_NOISE_RATIO_UNITS;
         }
 #undef R1012
         unknown = false;
