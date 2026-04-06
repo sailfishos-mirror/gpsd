@@ -429,6 +429,7 @@ void rtcm3_unpack(const struct gps_context_t *context,
     mbz = ugrab(6);
     if (0xD3 != preamble ||
         0 != mbz) {
+        // The mbz may eventually used for RTCM version.
         GPSD_LOG(LOG_WARN, &context->errout,
                  "RTCM3: invalid preamble x%2x or mbz x%x\n",
                  preamble, mbz);
@@ -1220,6 +1221,11 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * GPS Network FKP Gradient Message
          */
         msg_name = "GPS Network FKP Gradient";
+        if (6 > rtcm->length) {
+            // not exactly: 6.125 + (8.25 * n)
+            bad_len = 6;
+            break;
+        }
         break;
 
     case 1035:
@@ -1227,6 +1233,11 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * GLONASS Network FKP Gradient Message
          */
         msg_name = "GLO Network FKP Gradient";
+        if (5 > rtcm->length) {
+            // not exactly: 5.75 + (8.25 * n)
+            bad_len = 5;
+            break;
+        }
         break;
 
     case 1037:
@@ -1234,6 +1245,11 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * GLONASS Ionospheric Correction Differences
          */
         msg_name = "GLO Ionospheric Correction Differences";
+        if (9 > rtcm->length) {
+            // not exactly: 9.125 + (3,5 * n)
+            bad_len = 9;
+            break;
+        }
         break;
 
     case 1038:
@@ -1241,6 +1257,11 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * GLONASS Geometric Correction Differences
          */
         msg_name = "GLO Geometric Correction Differences";
+        if (9 > rtcm->length) {
+            // not exactly: 9.125 + (4,5 * n)
+            bad_len = 9;
+            break;
+        }
         break;
 
     case 1039:
@@ -1248,15 +1269,24 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * GLONASS Combined Geometric and Ionospheric Correction Differences
          */
         msg_name = "GLONASS Combined Geometric and Ionospheric "
-                       "Correction Differences";
+                   "Correction Differences";
+        if (9 > rtcm->length) {
+            // not exactly: 9.125 + (6.625 * n)
+            bad_len = 9;
+            break;
+        }
         break;
 
     case 1042:
         /* RTCM 3.x - 1043
          * BeiDou Ephemeris
-         * length ?
+         * length 64
          */
         msg_name = "BD Ephemeris";
+        if (64 != rtcm->length) {
+            bad_len = 64;
+            break;
+        }
         break;
 
     case 1043:
@@ -1265,6 +1295,10 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * length 29
          */
         msg_name = "SBAS Ephemeris";
+        if (29 != rtcm->length) {
+            bad_len = 29;
+            break;
+        }
         break;
 
     case 1044:
@@ -1274,15 +1308,23 @@ void rtcm3_unpack(const struct gps_context_t *context,
          */
         // TODO: rtklib has C code for this one.
         msg_name = "QZSS Ephemeris";
+        if (61 != rtcm->length) {
+            bad_len = 61;
+            break;
+        }
         break;
 
     case 1045:
         /* RTCM 3.2 - 1045
          * Galileo F/NAV Ephemeris Data
-         * 64 bytes
+         * 62 bytes
          */
         // TODO: rtklib has C code for this one.
         msg_name = "GAL F/NAV Ephemeris Data";
+        if (62 != rtcm->length) {
+            bad_len = 62;
+            break;
+        }
         break;
 
     case 1046:
@@ -1292,6 +1334,10 @@ void rtcm3_unpack(const struct gps_context_t *context,
          */
         // TODO: rtklib has C code for this one.
         msg_name = "GAL I/NAV Ephemeris Data";
+        if (63 != rtcm->length) {
+            bad_len = 63;
+            break;
+        }
         break;
 
     case 1057:
@@ -1299,6 +1345,11 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * SSR GPS Orbit Correction
          */
         msg_name = "SSR GPS Orbit Correction";
+        if (8 > rtcm->length) {
+            // not exactly: 8.5 + (6.875 * n)
+            bad_len = 8;
+            break;
+        }
         break;
 
     case 1058:
@@ -1306,6 +1357,11 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * SSR GPS Clock Correction
          */
         msg_name = "SSR GPS Clock Correction";
+        if (8 > rtcm->length) {
+            // not exactly: 8.375 + (9.5 * n)
+            bad_len = 8;
+            break;
+        }
         break;
 
     case 1059:
@@ -1313,6 +1369,11 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * SSR GPS Code Bias
          */
         msg_name = "SSR GPS Code Bias";
+        if (8 > rtcm->length) {
+            // not exactly: 8.375 + (1.375 * n) + (2.375 * ??)
+            bad_len = 8;
+            break;
+        }
         break;
 
     case 1060:
@@ -1320,6 +1381,11 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * SSR GPS Combined Orbit and Clock Correction
          */
         msg_name = "SSR GPS Combined Orbit and Clock Correction";
+        if (8 > rtcm->length) {
+            // not exactly: 8.5 + (25.625 * n)
+            bad_len = 8;
+            break;
+        }
         break;
 
     case 1061:
@@ -1327,6 +1393,11 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * SSR GPS URA
          */
         msg_name = "SSR GPS URA";
+        if (8 > rtcm->length) {
+            // not exactly: 8.375 + (1.5 * n)
+            bad_len = 8;
+            break;
+        }
         break;
 
     case 1062:
@@ -1334,6 +1405,11 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * SSR GPS High Rate Clock Correction
          */
         msg_name = "SSR GPS High Rate Clock Correction";
+        if (8 > rtcm->length) {
+            // not exactly: 8.375 + (3.5 * n)
+            bad_len = 8;
+            break;
+        }
         break;
 
     case 1063:
@@ -1341,6 +1417,11 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * SSR GLO Orbit Correction
          */
         msg_name = "SSR GLO Orbit Correction";
+        if (8 > rtcm->length) {
+            // not exactly: 8.125 + (16.75 * n)
+            bad_len = 8;
+            break;
+        }
         break;
 
     case 1064:
@@ -1348,6 +1429,11 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * SSR GLO Clock Correction
          */
         msg_name = "SSR GLO Clock Correction";
+        if (8 > rtcm->length) {
+            // not exactly: 8.125 + (9.37 * n)
+            bad_len = 8;
+            break;
+        }
         break;
 
     case 1065:
@@ -1355,6 +1441,11 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * SSR GLO Code Correction
          */
         msg_name = "SSR GLO ode Correction";
+        if (8 > rtcm->length) {
+            // not exactly: 8 + (1.25 * n) + (2.375 * ??)
+            bad_len = 8;
+            break;
+        }
         break;
 
     case 1066:
@@ -1362,6 +1453,11 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * SSR GLO Combined Orbit and Clock Correction
          */
         msg_name = "SSR GLO Combined Orbit and Clock Correction";
+        if (8 > rtcm->length) {
+            // not exactly: 8.125 + (25.5 * n)
+            bad_len = 8;
+            break;
+        }
         break;
 
     case 1067:
@@ -1369,6 +1465,11 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * SSR GLO URA
          */
         msg_name = "SSR GLO URA";
+        if (8 > rtcm->length) {
+            // not exactly: 8 + (1.375 * n)
+            bad_len = 8;
+            break;
+        }
         break;
 
     case 1068:
@@ -1376,6 +1477,11 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * SSR GPS High Rate Clock Correction
          */
         msg_name = "SSR GLO High Rate Clock Correction";
+        if (8 > rtcm->length) {
+            // not exactly: 8 + (3.375 * n)
+            bad_len = 8;
+            break;
+        }
         break;
 
     case 1070:
@@ -1938,10 +2044,16 @@ void rtcm3_unpack(const struct gps_context_t *context,
          */
         msg_name = "GLO L1 and L2 Code-Phase Biases";
         unknown = false;
-        rtcm->rtcmtypes.rtcm3_1230.station_id = (unsigned short)ugrab(12);
-        rtcm->rtcmtypes.rtcm3_1230.bias_indicator = (unsigned char)ugrab(1);
+        if (4 > rtcm->length) {
+            // not exactly: 32 + (16 * n), n <= 4
+            // but we see 12 and even 4??
+            bad_len = 4;
+            break;
+        }
+        rtcm->rtcmtypes.rtcm3_1230.station_id = ugrab(12);
+        rtcm->rtcmtypes.rtcm3_1230.bias_indicator = ugrab(1);
         (void)ugrab(1);         // reserved
-        rtcm->rtcmtypes.rtcm3_1230.signals_mask = (unsigned char)ugrab(3);
+        rtcm->rtcmtypes.rtcm3_1230.signals_mask = ugrab(3);
         // actual mask order is undocumented...
         if (1 & rtcm->rtcmtypes.rtcm3_1230.signals_mask) {
             rtcm->rtcmtypes.rtcm3_1230.l1_ca_bias = ugrab(16);
