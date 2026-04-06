@@ -797,16 +797,22 @@ void rtcm3_unpack(const struct gps_context_t *context,
 
     case 1013:
         msg_name = "System Parameters";
-        rtcm->rtcmtypes.rtcm3_1013.station_id = (unsigned short)ugrab(12);
-        rtcm->rtcmtypes.rtcm3_1013.mjd = (unsigned short)ugrab(16);
-        rtcm->rtcmtypes.rtcm3_1013.sod = (unsigned short)ugrab(17);
-        rtcm->rtcmtypes.rtcm3_1013.ncount = (unsigned long)ugrab(5);
-        rtcm->rtcmtypes.rtcm3_1013.leapsecs = (unsigned char)ugrab(8);
+        rtcm->rtcmtypes.rtcm3_1013.station_id = ugrab(12);
+        rtcm->rtcmtypes.rtcm3_1013.mjd = ugrab(16);
+        rtcm->rtcmtypes.rtcm3_1013.sod = ugrab(17);
+        n = ugrab(5);
+        if ((8 + (3 * n)) > rtcm->length) {
+            // not exactly: 8.75 + (3.625 * n)
+            bad_len = 8 + (3 * n);
+            break;
+        }
+        rtcm->rtcmtypes.rtcm3_1013.ncount = n;
+        rtcm->rtcmtypes.rtcm3_1013.leapsecs = ugrab(8);
 #define R1013 rtcm->rtcmtypes.rtcm3_1013.announcements[i]
         for (i = 0; i < rtcm->rtcmtypes.rtcm3_1013.ncount; i++) {
-            R1013.id = (unsigned short)ugrab(12);
+            R1013.id = ugrab(12);
             R1013.sync = (bool)ugrab(1);
-            R1013.interval = (unsigned short)ugrab(16);
+            R1013.interval = ugrab(16);
         }
 #undef R1013
         unknown = false;
@@ -815,16 +821,20 @@ void rtcm3_unpack(const struct gps_context_t *context,
     case 1014:
         msg_name = "Network Auxiliary Station Data";
         // coordinate difference between one Aux station and master station
+        if (15 != rtcm->length) {
+            bad_len = 15;
+            break;
+        }
         rtcm->rtcmtypes.rtcm3_1014.network_id = (int)ugrab(8);
         rtcm->rtcmtypes.rtcm3_1014.subnetwork_id = (int)ugrab(4);
         rtcm->rtcmtypes.rtcm3_1014.stationcount = (char)ugrab(5);
         rtcm->rtcmtypes.rtcm3_1014.master_id = (int)ugrab(12);
         rtcm->rtcmtypes.rtcm3_1014.aux_id = (int)ugrab(12);
         rtcm->rtcmtypes.rtcm3_1014.d_lat =
-            (unsigned short)ugrab(20) * ANTENNA_DEGREE_RESOLUTION;
+            ugrab(20) * ANTENNA_DEGREE_RESOLUTION;
         rtcm->rtcmtypes.rtcm3_1014.d_lon =
-            (unsigned short)ugrab(21) * ANTENNA_DEGREE_RESOLUTION;
-        rtcm->rtcmtypes.rtcm3_1014.d_alt = (unsigned short)ugrab(23) / 1000;
+            ugrab(21) * ANTENNA_DEGREE_RESOLUTION;
+        rtcm->rtcmtypes.rtcm3_1014.d_alt = ugrab(23) / 1000;
         unknown = false;
         break;
 
@@ -834,9 +844,9 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * between the master station and one auxiliary station
          * 9 bytes minimum
          */
-        if (22 > rtcm->length) {
+        if (9 > rtcm->length) {
             // need 76 bits, 9.5 bytes
-            bad_len = 22;
+            bad_len = 9;
             break;
         }
 
@@ -850,6 +860,11 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * the master station and one auxiliary station.
          * 9 bytes minimum
          */
+        if (9 > rtcm->length) {
+            // need 76 bits, 9.5 bytes
+            bad_len = 9;
+            break;
+        }
         unknown = rtcm3_101567(context, rtcm, buf);
         msg_name = "GPS Geometric Correction Differences";
         break;
@@ -861,6 +876,12 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * (same content as both types 1015 and 1016 together, but less size)
          * 9 bytes minimum
          */
+        if (9 > rtcm->length) {
+            // need 76 bits, 9.5 bytes
+            bad_len = 9;
+            break;
+        }
+        unknown = rtcm3_101567(context, rtcm, buf);
         unknown = rtcm3_101567(context, rtcm, buf);
         msg_name = "GPS Combined Geometric and Ionospheric "
                        "Correction Differences";
@@ -879,6 +900,10 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * GPS Ephemeris
          * 62 bytes
          */
+        if (61 != rtcm->length) {
+            bad_len = 61;
+            break;
+        }
         // TODO: rtklib has C code for this one.
         msg_name = "GPS Ephemeris";
         break;
@@ -888,6 +913,10 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * GLONASS Ephemeris
          * 45 bytes
          */
+        if (45 != rtcm->length) {
+            bad_len = 45;
+            break;
+        }
         // TODO: rtklib has C code for this one.
         msg_name = "GLO Ephemeris";
         break;
@@ -898,13 +927,19 @@ void rtcm3_unpack(const struct gps_context_t *context,
          */
         msg_name = "Helmert / Abridged Molodenski Transformation "
                        "parameters";
+        if (51 > rtcm->length) {
+            // actually 51.5 + n + m
+            bad_len = 51;
+            break;
+        }
         // Set Source-Name
-        n = (unsigned)ugrab(5);
-        if ((sizeof(rtcm->rtcmtypes.rtcm3_1021.src_name) -1) <= n) {
+        n = ugrab(5);
+        if ((sizeof(rtcm->rtcmtypes.rtcm3_1021.src_name) - 1) <= n) {
             // paranoia
             n = sizeof(rtcm->rtcmtypes.rtcm3_1021.src_name) - 1;
         }
         for (i = 0; i < n; i++) {
+            // Grrr.  Not byte aligned
             rtcm->rtcmtypes.rtcm3_1021.src_name[i] = (char)ugrab(8);
         }
         rtcm->rtcmtypes.rtcm3_1021.src_name[n] = '\0';
@@ -918,15 +953,15 @@ void rtcm3_unpack(const struct gps_context_t *context,
             rtcm->rtcmtypes.rtcm3_1021.tar_name[i] = (char)ugrab(8);
         }
         rtcm->rtcmtypes.rtcm3_1021.tar_name[n2] = '\0';
-        rtcm->rtcmtypes.rtcm3_1021.sys_id_num = (unsigned)ugrab(8);
+        rtcm->rtcmtypes.rtcm3_1021.sys_id_num = ugrab(8);
 #define R1021 rtcm->rtcmtypes.rtcm3_1021.ut_tr_msg_id[i]
         for (i = 0; i < RTCM3_DF148_SIZE; i++) {
             R1021 = (bool)ugrab(1);
         }
 #undef R1021
-        rtcm->rtcmtypes.rtcm3_1021.plate_number = (unsigned)ugrab(5);
-        rtcm->rtcmtypes.rtcm3_1021.computation_id = (unsigned)ugrab(4);
-        rtcm->rtcmtypes.rtcm3_1021.height_id = (unsigned)ugrab(2);
+        rtcm->rtcmtypes.rtcm3_1021.plate_number = ugrab(5);
+        rtcm->rtcmtypes.rtcm3_1021.computation_id = ugrab(4);
+        rtcm->rtcmtypes.rtcm3_1021.height_id = ugrab(2);
         rtcm->rtcmtypes.rtcm3_1021.lat_origin = sgrab(19) *
             VALIDITY_RESOLUTION / DEG_ARCSEC_RESOLUTION;
         rtcm->rtcmtypes.rtcm3_1021.lon_origin = sgrab(20) *
@@ -956,8 +991,8 @@ void rtcm3_unpack(const struct gps_context_t *context,
             TRANSLATION_MM_RESOLUTION;
         rtcm->rtcmtypes.rtcm3_1021.add_bt = sgrab(25) *
             TRANSLATION_MM_RESOLUTION;
-        rtcm->rtcmtypes.rtcm3_1021.quality_hori = (unsigned)ugrab(3);
-        rtcm->rtcmtypes.rtcm3_1021.quality_vert = (unsigned)ugrab(3);
+        rtcm->rtcmtypes.rtcm3_1021.quality_hori = ugrab(3);
+        rtcm->rtcmtypes.rtcm3_1021.quality_vert = ugrab(3);
 
         unknown = false;
         break;
@@ -967,6 +1002,11 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * Molodenski-Badekas transformation parameters
          */
         msg_name = "Molodenski-Badekas transformation parameters";
+        if (64 > rtcm->length) {
+            // actually 64,625 + n + m
+            bad_len = 64;
+            break;
+        }
         break;
 
     case 1023:
@@ -974,16 +1014,21 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * Residuals Ellipsoidal Grid Representation
          */
         msg_name = "Residuals Ellipsoidal Grid Representation";
-        rtcm->rtcmtypes.rtcm3_1023.sys_id_num = (unsigned)ugrab(8);
+        if (72 > rtcm->length) {
+            // actually 72,25
+            bad_len = 72;
+            break;
+        }
+        rtcm->rtcmtypes.rtcm3_1023.sys_id_num = ugrab(8);
         rtcm->rtcmtypes.rtcm3_1023.shift_id_hori = (bool)ugrab(1);
         rtcm->rtcmtypes.rtcm3_1023.shift_id_vert = (bool)ugrab(1);
         rtcm->rtcmtypes.rtcm3_1023.lat_origin = sgrab(21) *
             PHASE_CORRECTION_RESOLUTION / DEG_ARCSEC_RESOLUTION;
         rtcm->rtcmtypes.rtcm3_1023.lon_origin = sgrab(22) *
             PHASE_CORRECTION_RESOLUTION / DEG_ARCSEC_RESOLUTION;
-        rtcm->rtcmtypes.rtcm3_1023.lat_extension = (unsigned)ugrab(12) *
+        rtcm->rtcmtypes.rtcm3_1023.lat_extension = ugrab(12) *
             PHASE_CORRECTION_RESOLUTION / DEG_ARCSEC_RESOLUTION;
-        rtcm->rtcmtypes.rtcm3_1023.lon_extension = (unsigned)ugrab(12) *
+        rtcm->rtcmtypes.rtcm3_1023.lon_extension = ugrab(12) *
             PHASE_CORRECTION_RESOLUTION / DEG_ARCSEC_RESOLUTION;
         rtcm->rtcmtypes.rtcm3_1023.lat_mean = sgrab(8) *
             TRANSLATION_MM_RESOLUTION;
@@ -997,11 +1042,11 @@ void rtcm3_unpack(const struct gps_context_t *context,
             R1023.hgt_res = sgrab(9) * TRANSLATION_MM_RESOLUTION;
         }
 #undef R1023
-        rtcm->rtcmtypes.rtcm3_1023.interp_meth_id_hori = (unsigned)ugrab(2);
-        rtcm->rtcmtypes.rtcm3_1023.interp_meth_id_vert = (unsigned)ugrab(2);
-        rtcm->rtcmtypes.rtcm3_1023.grd_qual_id_hori = (unsigned)ugrab(3);
-        rtcm->rtcmtypes.rtcm3_1023.grd_qual_id_vert = (unsigned)ugrab(3);
-        rtcm->rtcmtypes.rtcm3_1023.mjd = (unsigned short)ugrab(16);
+        rtcm->rtcmtypes.rtcm3_1023.interp_meth_id_hori = ugrab(2);
+        rtcm->rtcmtypes.rtcm3_1023.interp_meth_id_vert = ugrab(2);
+        rtcm->rtcmtypes.rtcm3_1023.grd_qual_id_hori = ugrab(3);
+        rtcm->rtcmtypes.rtcm3_1023.grd_qual_id_vert = ugrab(3);
+        rtcm->rtcmtypes.rtcm3_1023.mjd = ugrab(16);
         unknown = false;
         break;
 
@@ -1010,6 +1055,11 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * Residuals Plane Grid Representation
          */
         msg_name = "Residuals Plane Grid Representation";
+        if (72 > rtcm->length) {
+            // actually 72,75
+            bad_len = 72;
+            break;
+        }
         break;
 
     case 1025:
@@ -1018,15 +1068,20 @@ void rtcm3_unpack(const struct gps_context_t *context,
          */
         msg_name = "Projection Parameters, Projection Types other "
                        "than LCC2SP";
-        rtcm->rtcmtypes.rtcm3_1025.sys_id_num = (unsigned short)ugrab(8);
-        rtcm->rtcmtypes.rtcm3_1025.projection_type = (unsigned short)ugrab(6);
+        if (24 > rtcm->length) {
+            // actually 24.5
+            bad_len = 24;
+            break;
+        }
+        rtcm->rtcmtypes.rtcm3_1025.sys_id_num = ugrab(8);
+        rtcm->rtcmtypes.rtcm3_1025.projection_type = ugrab(6);
         rtcm->rtcmtypes.rtcm3_1025.lat_origin = sgrab(34) *
             PROJ_ORIGIN_RESOLUTION;
         rtcm->rtcmtypes.rtcm3_1025.lon_origin = sgrab(35) *
             PROJ_ORIGIN_RESOLUTION;
-        rtcm->rtcmtypes.rtcm3_1025.add_sno = (unsigned)ugrab(30) *
+        rtcm->rtcmtypes.rtcm3_1025.add_sno = ugrab(30) *
             SCALE_PPM_RESOLUTION;
-        rtcm->rtcmtypes.rtcm3_1025.false_east = (unsigned)ugrab(36) *
+        rtcm->rtcmtypes.rtcm3_1025.false_east = ugrab(36) *
             TRANSLATION_MM_RESOLUTION;
         rtcm->rtcmtypes.rtcm3_1025.false_north = ugrab(35) *
             TRANSLATION_MM_RESOLUTION;
@@ -1039,6 +1094,11 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * (Lambert Conic Conformal)
          */
         msg_name = "Projection Parameters, Projection Type LCC2SP";
+        if (29 > rtcm->length) {
+            // actually 29.25
+            bad_len = 29;
+            break;
+        }
         break;
 
     case 1027:
@@ -1046,6 +1106,11 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * Projection Parameters, Projection Type OM (Oblique Mercator)
          */
         msg_name = "Projection Parameters, Projection Type OM";
+        if (32 > rtcm->length) {
+            // actually 32.25
+            bad_len = 32;
+            break;
+        }
         break;
 
     case 1028:
@@ -1082,6 +1147,11 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * GPS Network RTK Residual Message
          */
         msg_name = "GPS Network RTK Residual";
+        if (7 > rtcm->length) {
+            // actually 7 + (6.125 * n)
+            bad_len = 7;
+            break;
+        }
         break;
 
     case 1031:
@@ -1089,6 +1159,11 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * GLONASS Network RTK Residual Message
          */
         msg_name = "GLONASS Network RTK Residual";
+        if (6 > rtcm->length) {
+            // actually 6.625 + (6.125 ( n)
+            bad_len = 6;
+            break;
+        }
         break;
 
     case 1032:
@@ -1096,6 +1171,11 @@ void rtcm3_unpack(const struct gps_context_t *context,
          * Physical Reference Station Position message
          */
         msg_name = "Physical Reference Station Position";
+        if (19 > rtcm->length) {
+            // actually 19.5
+            bad_len = 19;
+            break;
+        }
         break;
 
     case 1033:                  // see note in header
