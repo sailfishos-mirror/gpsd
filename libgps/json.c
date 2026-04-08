@@ -167,6 +167,14 @@ static char *json_target_address(const struct json_attr_t *cursor,
         case t_character:
             targetaddr = (char *)&cursor->addr.character[offset];
             break;
+        case t_array:
+            FALLTHROUGH
+        case t_check:
+            FALLTHROUGH
+        case t_object:
+            FALLTHROUGH
+        case t_structobject:
+            FALLTHROUGH
         default:
             targetaddr = NULL;
             break;
