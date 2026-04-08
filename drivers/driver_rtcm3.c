@@ -548,11 +548,12 @@ void rtcm3_unpack(const struct gps_context_t *context,
         rtcm->rtcmtypes.rtcm3_1004.header.tow = ugrab(30);
         rtcm->rtcmtypes.rtcm3_1004.header.sync = (bool)ugrab(1);
         n = ugrab(5);
-        if ((8 + (15 * n)) > rtcm->length) {
-            // not exactly: 8 + (15.625 * n)
-            bad_len = 8 + (15 * n);
+        bad_len = ceil(8.0 + (15.625* n));
+        if (bad_len != rtcm->length) {
+            // exactly: 8 + (15.625 * n)
             break;
         }
+        bad_len = 0;
         rtcm->rtcmtypes.rtcm3_1004.header.satcount = n;
         rtcm->rtcmtypes.rtcm3_1004.header.smoothing = (bool)ugrab(1);
         rtcm->rtcmtypes.rtcm3_1004.header.interval = ugrab(3);
@@ -694,11 +695,12 @@ void rtcm3_unpack(const struct gps_context_t *context,
         rtcm->rtcmtypes.rtcm3_1010.header.tow = ugrab(27);
         rtcm->rtcmtypes.rtcm3_1010.header.sync = (bool)ugrab(1);
         n = ugrab(5);
-        if ((7 + (9 * n)) > rtcm->length) {
-            // not exactly: 7.625 + (9.875 * n)
-            bad_len = 7 + (9 * n);
+        bad_len = ceil(7.625 + (9.875 * n));
+        if (bad_len != rtcm->length) {
+            // exactly: 7.625 + (9.875 * n)
             break;
         }
+        bad_len = 0;
         rtcm->rtcmtypes.rtcm3_1010.header.satcount = n;
         rtcm->rtcmtypes.rtcm3_1010.header.smoothing = (bool)ugrab(1);
         rtcm->rtcmtypes.rtcm3_1010.header.interval = ugrab(3);
@@ -724,11 +726,12 @@ void rtcm3_unpack(const struct gps_context_t *context,
         rtcm->rtcmtypes.rtcm3_1011.header.tow = ugrab(27);
         rtcm->rtcmtypes.rtcm3_1011.header.sync = (bool)ugrab(1);
         n = ugrab(5);
-        if ((8 + (13 * n)) > rtcm->length) {
-            // not exactly: 8 + (13.325 * n)
-            bad_len = 8 + (13 * n);
+        bad_len = ceil(7.625 + (13.325 * n));
+        if (bad_len != rtcm->length) {
+            // exactly: 7.625 + (13.325 * n)
             break;
         }
+        bad_len = 0;
         rtcm->rtcmtypes.rtcm3_1011.header.satcount = n;
         rtcm->rtcmtypes.rtcm3_1011.header.smoothing = (bool)ugrab(1);
         rtcm->rtcmtypes.rtcm3_1011.header.interval = ugrab(3);
@@ -760,11 +763,12 @@ void rtcm3_unpack(const struct gps_context_t *context,
         rtcm->rtcmtypes.rtcm3_1012.header.tow = ugrab(27);
         rtcm->rtcmtypes.rtcm3_1012.header.sync = (bool)ugrab(1);
         n = ugrab(5);
-        if ((8 + (16 * n)) > rtcm->length) {
-            // not exactly: 8 + (16.25 * n)
-            bad_len = 8 + (16 * n);
+        bad_len = ceil(7.625 + (16.25 * n));
+        if (bad_len != rtcm->length) {
+            // exactly: 7.625 + (16.25 * n)
             break;
         }
+        bad_len = 0;
         rtcm->rtcmtypes.rtcm3_1012.header.satcount = n;
         rtcm->rtcmtypes.rtcm3_1012.header.smoothing = (bool)ugrab(1);
         rtcm->rtcmtypes.rtcm3_1012.header.interval = ugrab(3);
@@ -802,11 +806,12 @@ void rtcm3_unpack(const struct gps_context_t *context,
         rtcm->rtcmtypes.rtcm3_1013.mjd = ugrab(16);
         rtcm->rtcmtypes.rtcm3_1013.sod = ugrab(17);
         n = ugrab(5);
-        if ((8 + (3 * n)) > rtcm->length) {
-            // not exactly: 8.75 + (3.625 * n)
-            bad_len = 8 + (3 * n);
+        bad_len = ceil(8.75 + (3.625 * n));
+        if (bad_len != rtcm->length) {
+            // exactly: 8.75 + (3.625 * n)
             break;
         }
+        bad_len = 0;
         rtcm->rtcmtypes.rtcm3_1013.ncount = n;
         rtcm->rtcmtypes.rtcm3_1013.leapsecs = ugrab(8);
 #define R1013 rtcm->rtcmtypes.rtcm3_1013.announcements[i]
@@ -2320,6 +2325,9 @@ void rtcm3_unpack(const struct gps_context_t *context,
         msg_name = "Ashtech/Magellan Proprietary";
         break;
 
+    case 63:
+        // dunno what this is.  Length 64
+        FALLTHROUGH
     default:
         break;
     }
@@ -2329,8 +2337,8 @@ void rtcm3_unpack(const struct gps_context_t *context,
 #undef ugrab
     if (0 != bad_len) {
             GPSD_LOG(LOG_WARN, &context->errout,
-                     "RTCM3: type %d (%s) bad n %u length %u\n",
-                     rtcm->type,  msg_name, n, rtcm->length);
+                     "RTCM3: type %d (%s) bad n %u length %u s/b %u\n",
+                     rtcm->type,  msg_name, n, rtcm->length, bad_len);
             rtcm->length = 0;          // set to zero to prevent JSON decode
             return;
     }
