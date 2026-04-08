@@ -305,6 +305,8 @@ int main(int argc, char *argv[])
         speedfactor = MPS_TO_KPH;
         speedunits = "km/h";
         break;
+    case unspecified:
+        FALLTHROUGH
     default:
         // leave the default alone
         break;
