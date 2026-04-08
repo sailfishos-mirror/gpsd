@@ -2271,6 +2271,8 @@ void json_rtcm3_dump(const struct rtcm3_t *rtcm,
         case PR_CS:
             ptr = "CS";
             break;
+        case PR_UNKNOWN:
+            FALLTHROUGH
         default:
             ptr = "UNKNOWN";
             break;
