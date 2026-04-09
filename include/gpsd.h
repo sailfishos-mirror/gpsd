@@ -120,7 +120,8 @@ extern "C" {
  *      gps_lexer_t, add type_mask, to mask our bad types, like SPARTN
  * 3.28 WIP
  *      gps_lexer_t inbuffer, outbuffer and stashbuffer same size.
- *      remove unused gps_devivet_t.driver.nmea2000.pgnlist
+ *      remove unused gps_device_t.driver.nmea2000.pgnlist
+ *      add const to gps_device_t.driver.nmea2000.workpgn
  *
  */
 
@@ -864,7 +865,7 @@ struct gps_device_t {
 //          size_t ptr;
             size_t fast_packet_len;
             int type;
-            void *workpgn;
+            const void *workpgn;
             unsigned char sid[8];
         } nmea2000;
 #endif  // NMEA2000_ENABLE
