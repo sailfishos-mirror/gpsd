@@ -1511,7 +1511,7 @@ static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
                      "NMEA2000: PGN not found %08d %08x \n",
                      source_pgn, source_pgn);
         } else if (0 == work->fast) {
-            // not FAST
+            // not FAST, one packet is one complete message
 
             GPSD_LOG(LOG_DATA, &session->context->errout,
                      "NMEA2000: pgn %6d:%s \n", work->pgn, work->name);
@@ -1520,7 +1520,7 @@ static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
             memcpy(session->lexer.outbuffer, frame->data,
                    session->lexer.outbuflen);
         } else if (0 == (frame->data[0] & 0x1f)) {
-            // FAST
+            // FAST, first packet of multi packet message
 
             session->driver.nmea2000.fast_packet_len = frame->data[1];
             session->driver.nmea2000.idx = frame->data[0];
@@ -1538,6 +1538,7 @@ static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
             GPSD_LOG(LOG_DATA, &session->context->errout,
                      "NMEA2000: pgn %6d:%s \n", work->pgn, work->name);
         } else if (frame->data[0] == session->driver.nmea2000.idx) {
+            // FAST, the expected next packet of multi packet message
             unsigned int l2;
 
             for (l2 = 1; l2 < 8; l2++) {
@@ -1561,17 +1562,14 @@ static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
                 session->driver.nmea2000.workpgn = (void *)work;
                 session->lexer.outbuflen =
                     session->driver.nmea2000.fast_packet_len;
-                for (l2 = 0;
-                     l2 < (unsigned int)session->lexer.outbuflen;
-                     l2++) {
-                    session->lexer.outbuffer[l2] =
-                        session->lexer.inbuffer[l2];
-                }
+                memcpy(session->lexer.outbuffer, session->lexer.inbuffer,
+                       session->lexer.outbuflen);
                 session->driver.nmea2000.fast_packet_len = 0;
             } else {
                 session->driver.nmea2000.idx += 1;
             }
         } else {
+            // reset FAST expected??
             GPSD_LOG(LOG_ERROR, &session->context->errout,
                  "NMEA2000: Fast error %2x %2x %2x %2x %6d\n",
                  session->driver.nmea2000.idx,
