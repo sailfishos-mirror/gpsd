@@ -48,17 +48,18 @@
 
 #define LOG_FILE 1
 #define NMEA2000_NETS 4
-/* NMEA 2000 unit is a byte, but 254 is "request for address claim"
- * and 255 is broadcast address.  So 254 is the number of units possible,
- * and 253 the highest unit number. */
-#define NMEA2000_UNITS 254
+/* NMEA 2000 source addr (SA) is a byte,
+ * but 254 is "request for address claim"
+ * and 255 is broadcast address.  So 254 is the number of addresses possible,
+ * and 253 the highest addresses number. */
+#define NMEA2000_ADDRS 254
 #define CAN_NAMELEN 32
 #define MIN(a,b) ((a < b) ? a : b)
 
 #define NMEA2000_DEBUG_AIS 0
 #define NMEA2000_FAST_DEBUG 0
 
-static struct gps_device_t *nmea2000_units[NMEA2000_NETS][NMEA2000_UNITS];
+static struct gps_device_t *nmea2000_units[NMEA2000_NETS][NMEA2000_ADDRS];
 static char can_interface_name[NMEA2000_NETS][CAN_NAMELEN + 1];
 
 typedef struct PGN {
@@ -1417,7 +1418,7 @@ static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
     unsigned int source_prio;
     unsigned int daddr;
     unsigned int source_pgn;
-    unsigned int source_unit;
+    unsigned int source_addr;
 
     session->driver.nmea2000.workpgn = NULL;
     can_net = session->driver.nmea2000.can_net;
@@ -1463,10 +1464,10 @@ static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
         (void)fprintf(logFile, "\n");
     }
 #endif  // of if LOG_FILE
-    source_unit = frame->can_id & 0x0ff;
-    if (NMEA2000_UNITS <= source_unit) {
+    source_addr = frame->can_id & 0x0ff;
+    if (NMEA2000_ADDRS <= source_addr) {
         GPSD_LOG(LOG_PROG, &session->context->errout,
-                 "NMEA2000 ignoring unit %d.\n", source_unit);
+                 "NMEA2000 ignoring SA %d.\n", source_addr);
         return;
     }
     session->driver.nmea2000.can_msgcnt += 1;
@@ -1480,14 +1481,14 @@ static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
         daddr = 0xff;
     }
     GPSD_LOG(LOG_DATA, &session->context->errout,
-             "NMEA2000: source_prio %u source_unit %u daddr %u\n",
-             source_prio, source_unit, daddr);
+             "NMEA2000: source_prio %u SA %u daddr %u\n",
+             source_prio, source_addr, daddr);
 
     if (!session->driver.nmea2000.unit_valid) {
         unsigned int l1, l2;
 
         for (l1 = 0; l1 < NMEA2000_NETS; l1++) {
-            for (l2 = 0; l2 < NMEA2000_UNITS; l2++) {
+            for (l2 = 0; l2 < NMEA2000_ADDRS; l2++) {
                 if (session == nmea2000_units[l1][l2]) {
                     session->driver.nmea2000.unit = l2;
                     session->driver.nmea2000.unit_valid = true;
@@ -1497,12 +1498,12 @@ static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
             }
         }
 
-        session->driver.nmea2000.unit = source_unit;
+        session->driver.nmea2000.unit = source_addr;
         session->driver.nmea2000.unit_valid = true;
-        nmea2000_units[can_net][source_unit] = session;
+        nmea2000_units[can_net][source_addr] = session;
     }
 
-    if (source_unit == session->driver.nmea2000.unit) {
+    if (source_addr == session->driver.nmea2000.unit) {
         // current unit number.  Current net???
         PGN *work = search_pgnlist(source_pgn);
 
@@ -1578,13 +1579,13 @@ static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
                  (unsigned int)session->driver.nmea2000.fast_packet_len,
                  source_pgn);
         }
-    } else if (NULL == nmea2000_units[can_net][source_unit]) {
-        // unkown net/unit, add it as a new device.
+    } else if (NULL == nmea2000_units[can_net][source_addr]) {
+        // unkown net/SA, add it as a new device.
         char buffer[GPS_PATH_MAX];
 
         (void)snprintf(buffer, sizeof(buffer), "nmea2000://%s:%u",
                        can_interface_name[can_net],
-                       source_unit);
+                       source_addr);
         if (NULL != gpsd_add_device) {
             if (gpsd_add_device(buffer, true)) {
                 GPSD_LOG(LOG_INF, &session->context->errout,
@@ -1595,7 +1596,7 @@ static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
                          buffer);
             }
         }
-    } // else, known net/unit that is not this net/unit.  Ignore it.
+    } // else, known net/SA that is not this net/SA.  Ignore it.
 }
 
 
@@ -1663,12 +1664,12 @@ int nmea2000_open(struct gps_device_t *session)
     char interface_name[GPS_PATH_MAX];
     socket_t sock;
     int status;
-    int unit_number = -1;
+    int source_addr = -1;
     int can_net = -1;
     unsigned int l;
     struct ifreq ifr;
     struct sockaddr_can addr;
-    char *unit_ptr = NULL;
+    char *sa_ptr = NULL;
     can_err_mask_t err_mask;
     int rcvbuf_size = 1000000;  // requested receiver buffer size
     int curr_rcvbuf_size;
@@ -1687,26 +1688,26 @@ int nmea2000_open(struct gps_device_t *session)
     interface_name_len = strnlen(interface_name, sizeof(interface_name));
     for (l = 0; l < interface_name_len; l++) {
         if (':' == interface_name[l]) {
-            unit_ptr = &interface_name[l + 1];
+            sa_ptr = &interface_name[l + 1];
             interface_name[l] = 0;
             continue;
         }
-        if (NULL != unit_ptr) {
+        if (NULL != sa_ptr) {
             if (0 == isdigit(interface_name[l])) {
                 GPSD_LOG(LOG_ERROR, &session->context->errout,
-                         "NMEA2000 open: Invalid character in unit number.\n");
+                         "NMEA2000 open: Invalid character in source addr.\n");
                 return -1;
             }
         }
     }
 
-    if (NULL != unit_ptr) {
-        unit_number = atoi(unit_ptr);
-        if ((0 > unit_number) ||
-            (NMEA2000_UNITS <= unit_number)) {
+    if (NULL != sa_ptr) {
+        source_addr = atoi(sa_ptr);
+        if ((0 > source_addr) ||
+            (NMEA2000_ADDRS <= source_addr)) {
             GPSD_LOG(LOG_ERROR, &session->context->errout,
                      "NMEA2000 open: Unit number %d out of range.\n",
-                     unit_number);
+                     source_addr);
             return -1;
         }
         for (l = 0; l < NMEA2000_NETS; l++) {
@@ -1847,21 +1848,21 @@ int nmea2000_open(struct gps_device_t *session)
     (void)strlcpy(can_interface_name[can_net],
                   interface_name, sizeof(can_interface_name[0]));
 
-    if (NULL == unit_ptr) {
+    if (NULL == sa_ptr) {
         //  Only include EFF CAN frames
         can_filter.can_mask = CAN_EFF_FLAG | CAN_RTR_FLAG;
         can_filter.can_id = CAN_EFF_FLAG;
 
         session->driver.nmea2000.unit_valid = false;
-        // no unit, yet.
+        // no source addr, yet.
         memset(nmea2000_units[can_net], 0, sizeof(nmea2000_units[can_net]));
     } else {
         // Only include EFF CAN frames with the specific source address
         can_filter.can_mask = CAN_EFF_FLAG | CAN_RTR_FLAG | 0xff;
-        can_filter.can_id = CAN_EFF_FLAG | unit_number;
+        can_filter.can_id = CAN_EFF_FLAG | source_addr;
 
-        nmea2000_units[can_net][unit_number] = session;
-        session->driver.nmea2000.unit = unit_number;
+        nmea2000_units[can_net][source_addr] = session;
+        session->driver.nmea2000.unit = source_addr;
         session->driver.nmea2000.unit_valid = true;
     }
 
@@ -1900,7 +1901,7 @@ void nmea2000_close(struct gps_device_t *session)
         unsigned int l1, l2;
 
         for (l1 = 0; l1 < NMEA2000_NETS; l1++) {
-            for (l2 = 0; l2 < NMEA2000_UNITS; l2++) {
+            for (l2 = 0; l2 < NMEA2000_ADDRS; l2++) {
                 if (session == nmea2000_units[l1][l2]) {
                     session->driver.nmea2000.unit_valid = false;
                     session->driver.nmea2000.unit = 0;
