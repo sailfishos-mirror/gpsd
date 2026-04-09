@@ -1512,18 +1512,15 @@ static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
                      source_pgn, source_pgn);
         } else if (0 == work->fast) {
             // not FAST
-            size_t l2;
 
             GPSD_LOG(LOG_DATA, &session->context->errout,
                      "NMEA2000: pgn %6d:%s \n", work->pgn, work->name);
-            session->driver.nmea2000.workpgn = (void *) work;
-            session->lexer.outbuflen =  frame->can_dlc & 0x0f;
-            for (l2 = 0; l2 < session->lexer.outbuflen; l2++) {
-                session->lexer.outbuffer[l2]= frame->data[l2];
-            }
+            session->driver.nmea2000.workpgn = (void *)work;
+            session->lexer.outbuflen =  frame->can_dlc & 0x0f;  // max 15
+            memcpy(session->lexer.outbuffer, frame->data,
+                   session->lexer.outbuflen);
         } else if (0 == (frame->data[0] & 0x1f)) {
             // FAST
-            unsigned int l2;
 
             session->driver.nmea2000.fast_packet_len = frame->data[1];
             session->driver.nmea2000.idx = frame->data[0];
@@ -1535,12 +1532,9 @@ static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
                      frame->data[1],
                      source_pgn);
 #endif  // of #if NMEA2000_FAST_DEBUG
-            session->lexer.inbuflen = 0;
+            session->lexer.inbuflen = 6;
             session->driver.nmea2000.idx += 1;
-            for (l2 = 2; l2 < 8; l2++) {
-                session->lexer.inbuffer[session->lexer.inbuflen++] =
-                    frame->data[l2];
-            }
+            memcpy(session->lexer.inbuffer, &frame->data[2], 6);
             GPSD_LOG(LOG_DATA, &session->context->errout,
                      "NMEA2000: pgn %6d:%s \n", work->pgn, work->name);
         } else if (frame->data[0] == session->driver.nmea2000.idx) {
@@ -1654,8 +1648,8 @@ static gps_mask_t nmea2000_parse_input(struct gps_device_t *session)
         print_data(session->context, session->lexer.outbuffer,
                    session->lexer.outbuflen, work);
         GPSD_LOG(LOG_DATA, &session->context->errout,
-                 "NMEA2000: pgn %6d(%3d):\n",
-                 work->pgn, session->driver.nmea2000.unit);
+                 "NMEA2000: pgn %6d sa %3d %s\n",
+                 work->pgn, session->driver.nmea2000.unit, work->name);
         mask = (work->func)(session->lexer.outbuffer,
                             (int)session->lexer.outbuflen, work, session);
         session->driver.nmea2000.workpgn = NULL;
