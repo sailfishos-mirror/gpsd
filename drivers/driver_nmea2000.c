@@ -1645,8 +1645,6 @@ static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
         // current unit number.  Current net???
         PGN *work = search_pgnlist(source_pgn);
 
-        session->driver.nmea2000.pgnlist = pgnlst;  // ??
-
         if (NULL == work) {
             GPSD_LOG(LOG_WARN, &session->context->errout,
                      "NMEA2000: PGN not found %08d %08x \n",
