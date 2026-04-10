@@ -57,7 +57,6 @@
 #define MIN(a,b) ((a < b) ? a : b)
 
 #define NMEA2000_DEBUG_AIS 0
-#define NMEA2000_FAST_DEBUG 0
 
 static struct gps_device_t *nmea2000_units[NMEA2000_NETS][NMEA2000_ADDRS];
 static char can_interface_name[NMEA2000_NETS][CAN_NAMELEN + 1];
@@ -96,13 +95,13 @@ static void print_data(struct gps_device_t *session, const PGN *pgn)
     int idx = 0;
     char bu[128];
 
+    GPSD_LOG(LOG_PROG, &session->context->errout,
+             "NMEA2000: pgn %6d SA %u len %zu %s\n",
+             pgn->pgn, session->driver.nmea2000.source_addr, len, pgn->name);
+
     if (LOG_IO > libgps_debuglevel) {
         return;
     }
-
-    GPSD_LOG(LOG_IO, &session->context->errout,
-             "NMEA2000: pgn %6d SA %u len %zu %s\n",
-             pgn->pgn, session->driver.nmea2000.source_addr, len, pgn->name);
 
     for (l1 = 0; l1 < len; l1++) {
         if (0 == (l1 % 20) &&
@@ -212,7 +211,7 @@ static double ais_direction(unsigned int val, double scale)
 
 
 /*
- *   PGN 59392: ISO  Acknowledgment
+ *   PGN 59392: ISO Acknowledgment
  */
 static gps_mask_t hnd_059392(struct gps_device_t *session UNUSED,
                              const PGN *pgn UNUSED)
@@ -222,7 +221,7 @@ static gps_mask_t hnd_059392(struct gps_device_t *session UNUSED,
 
 
 /*
- *   PGN 60928: ISO  Address Claim
+ *   PGN 60928: ISO Address Claim
  */
 static gps_mask_t hnd_060928(struct gps_device_t *session UNUSED,
                              const PGN *pgn UNUSED)
@@ -1363,7 +1362,7 @@ static const PGN pgnlst[] = {{ 59392, 0, 0, hnd_059392, "ISO Acknowledgment"},
                               "Maretron proprietary"},
                              {126992, 0, 0, hnd_126992, "GNSS System Time"},
                              {126996, 1, 0, hnd_126996,
-                              "ISO  Product Information"},
+                              "ISO Product Information"},
                              {127245, 0, 4, hnd_127245, "NAV Rudder"},
                              {127250, 0, 4, hnd_127250, "NAV Vessel Heading"},
                              {127258, 0, 0, hnd_127258,
@@ -1549,14 +1548,12 @@ static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
             // max frame data 223
             session->driver.nmea2000.fast_packet_len = frame->data[1];
             session->driver.nmea2000.idx = frame->data[0];
-#if NMEA2000_FAST_DEBUG
-            GPSD_LOG(LOG_ERROR, &session->context->errout,
-                     "NMEA2000: Set idx %u SA %u %2x %6d\n",
+            GPSD_LOG(LOG_IO, &session->context->errout,
+                     "NMEA2000: Set idx %u SA %u flen %2x %6d\n",
                      frame->data[0],
                      session->driver.nmea2000.source_addr,
                      frame->data[1],
                      source_pgn);
-#endif  // of #if NMEA2000_FAST_DEBUG
             session->lexer.inbuflen = 6;
             session->driver.nmea2000.idx += 1;
             memcpy(session->lexer.inbuffer, &frame->data[2], 6);
@@ -1610,7 +1607,7 @@ static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
             /* error? or packets out of order?
              * reset FAST expected?? */
             GPSD_LOG(LOG_WARN, &session->context->errout,
-                 "NMEA2000: Fast error  idx%2x/%2x SA %u flen %2x %6d\n",
+                 "NMEA2000: Fast error idx%2x/%2x SA %u flen %2x %6d\n",
                  session->driver.nmea2000.idx,
                  frame->data[0],
                  session->driver.nmea2000.source_addr,
@@ -1710,7 +1707,12 @@ int nmea2000_open(struct gps_device_t *session)
     struct can_filter can_filter;
     size_t interface_name_len;
 
+    // FIXME: if this was a live socket, then we left orphan fd.
     INVALIDATE_SOCKET(session->gpsdata.gps_fd);
+
+    GPSD_LOG(LOG_PROG, &session->context->errout,
+             "NMEA2000 nmea2000_open(%s)\n",
+             session->gpsdata.dev.path);
 
     session->driver.nmea2000.can_net = 0;
 
@@ -1728,7 +1730,8 @@ int nmea2000_open(struct gps_device_t *session)
         if (NULL != sa_ptr) {
             if (0 == isdigit(interface_name[l])) {
                 GPSD_LOG(LOG_ERROR, &session->context->errout,
-                         "NMEA2000 open: Invalid character in source addr.\n");
+                         "NMEA2000 open: Invalid char x%x in source addr.\n",
+                         interface_name[l]);
                 return -1;
             }
         }
@@ -1844,7 +1847,7 @@ int nmea2000_open(struct gps_device_t *session)
                  "NMEA2000 open:getsockopt(SO_RCVBUF) %s(%d)\n",
                  strerror(errno), errno);
     } else {
-        GPSD_LOG(LOG_ERROR, &session->context->errout,
+        GPSD_LOG(LOG_NOTICE, &session->context->errout,
                  "NMEA2000 open:getsockopt(SO_RCVBUF) =  %d\n",
                  curr_rcvbuf_size);
     }
@@ -1924,7 +1927,7 @@ void nmea2000_close(struct gps_device_t *session)
     }
 
     // cast for 32-bit ints.
-    GPSD_LOG(LOG_SPIN, &session->context->errout,
+    GPSD_LOG(LOG_PROG, &session->context->errout,
              "NMEA2000: close(%ld) in nmea2000_close(%s)\n",
              (long)session->gpsdata.gps_fd, session->gpsdata.dev.path);
     (void)close(session->gpsdata.gps_fd);
