@@ -1550,6 +1550,7 @@ static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
         } else if (0 == (frame->data[0] & 0x1f)) {
             // FAST, first packet of multi packet message
 
+            // max frame data 223
             session->driver.nmea2000.fast_packet_len = frame->data[1];
             session->driver.nmea2000.idx = frame->data[0];
 #if NMEA2000_FAST_DEBUG
@@ -1566,27 +1567,39 @@ static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
             GPSD_LOG(LOG_DATA, &session->context->errout,
                      "NMEA2000: pgn %6d:%s \n", work->pgn, work->name);
         } else if (frame->data[0] == session->driver.nmea2000.idx) {
-            // FAST, the expected next packet of multi packet message
-            unsigned int l2;
+            /* FAST, the expected next packet of multi packet message.
+             * we assume FAST packets come in sequence order.
+             * Not always true.
+             * See: https://canboat.github.io/canboat/canboat.html
+             * Secton: packet framing. */
+            unsigned l2;
 
-            for (l2 = 1; l2 < 8; l2++) {
-                if (session->driver.nmea2000.fast_packet_len >
-                    session->lexer.inbuflen) {
-                    session->lexer.inbuffer[session->lexer.inbuflen++] =
-                        frame->data[l2];
-                }
+            // FIXME: check inbuflen and fast_packet_len
+            l2 = session->driver.nmea2000.fast_packet_len -
+                 session->lexer.inbuflen;
+            if (223 < l2) {
+                // WTF??
+                l2 = 0;
+            } else if (7 < l2) {
+                // max 7 per packet
+                l2 = 7;
             }
+            // take up to 7 bytes, of 8.  1st byte is idx.
+            memcpy(&session->lexer.inbuffer[session->lexer.inbuflen],
+                   &frame->data[1], l2);
+            session->lexer.inbuflen += l2;
+
             if (session->lexer.inbuflen ==
                 session->driver.nmea2000.fast_packet_len) {
-#if NMEA2000_FAST_DEBUG
-                GPSD_LOG(LOG_ERROR, &session->context->errout,
-                         "NMEA2000: Fast done  %2x %2x %2x %2x %6d\n",
+                // Got a complete message
+                GPSD_LOG(LOG_IO, &session->context->errout,
+                         "NMEA2000: Fast done  idx %2x/%2x SA %2x "
+                         "flen %2x %6d\n",
                          session->driver.nmea2000.idx,
                          frame->data[0],
                          session->driver.nmea2000.unit,
-                         (unsigned int)session->driver.nmea2000.fast_packet_len,
+                         (unsigned)session->driver.nmea2000.fast_packet_len,
                          source_pgn);
-#endif  // of #if  NMEA2000_FAST_DEBUG
                 session->driver.nmea2000.workpgn = (const void *)work;
                 session->lexer.outbuflen =
                     session->driver.nmea2000.fast_packet_len;
@@ -1594,20 +1607,22 @@ static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
                        session->lexer.outbuflen);
                 session->driver.nmea2000.fast_packet_len = 0;
             } else {
+                // More to come.
                 session->driver.nmea2000.idx += 1;
             }
         } else {
-            // reset FAST expected??
-            GPSD_LOG(LOG_ERROR, &session->context->errout,
-                 "NMEA2000: Fast error %2x %2x %2x %2x %6d\n",
+            /* error? or packets out of order?
+             * reset FAST expected?? */
+            GPSD_LOG(LOG_WARN, &session->context->errout,
+                 "NMEA2000: Fast error  idx%2x/%2x SA %2x flen %2x %6d\n",
                  session->driver.nmea2000.idx,
                  frame->data[0],
                  session->driver.nmea2000.unit,
-                 (unsigned int)session->driver.nmea2000.fast_packet_len,
+                 (unsigned)session->driver.nmea2000.fast_packet_len,
                  source_pgn);
         }
     } else if (NULL == nmea2000_units[can_net][source_addr]) {
-        // unkown net/SA, add it as a new device.
+        // unknown net/SA, add it as a new device.
         char buffer[GPS_PATH_MAX];
 
         (void)snprintf(buffer, sizeof(buffer), "nmea2000://%s:%u",
@@ -1673,7 +1688,7 @@ static gps_mask_t nmea2000_parse_input(struct gps_device_t *session)
     if (NULL != work) {
         print_data(session->context, session->lexer.outbuffer,
                    session->lexer.outbuflen, work);
-        GPSD_LOG(LOG_DATA, &session->context->errout,
+        GPSD_LOG(LOG_IO, &session->context->errout,
                  "NMEA2000: pgn %6d sa %3d %s\n",
                  work->pgn, session->driver.nmea2000.unit, work->name);
         mask = (work->func)(session->lexer.outbuffer,
