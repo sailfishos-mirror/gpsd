@@ -102,7 +102,7 @@ static void print_data(struct gps_device_t *session, const PGN *pgn)
     }
 
     GPSD_LOG(LOG_IO, &session->context->errout,
-             "NMEA2000: pgn %6d sa %3d len %zu %s\n",
+             "NMEA2000: pgn %6d SA %u len %zu %s\n",
              pgn->pgn, session->driver.nmea2000.source_addr, len, pgn->name);
 
     for (l1 = 0; l1 < len; l1++) {
@@ -1446,11 +1446,11 @@ static const PGN *search_pgnlist(unsigned int pgn)
 
 static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
 {
-    unsigned int can_net;
-    unsigned int source_prio;
-    unsigned int daddr;
-    unsigned int source_pgn;
-    unsigned int source_addr;
+    unsigned can_net;
+    unsigned source_prio;
+    unsigned daddr;
+    unsigned source_pgn;
+    unsigned source_addr;
 
     session->driver.nmea2000.workpgn = NULL;
     can_net = session->driver.nmea2000.can_net;
@@ -1499,7 +1499,7 @@ static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
     source_addr = frame->can_id & 0x0ff;
     if (NMEA2000_ADDRS <= source_addr) {
         GPSD_LOG(LOG_PROG, &session->context->errout,
-                 "NMEA2000 ignoring SA %d.\n", source_addr);
+                 "NMEA2000 ignoring SA %u.\n", source_addr);
         return;
     }
     session->driver.nmea2000.can_msgcnt += 1;
@@ -1598,7 +1598,7 @@ static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
                 session->driver.nmea2000.fast_packet_len) {
                 // Got a complete message
                 GPSD_LOG(LOG_IO, &session->context->errout,
-                         "NMEA2000: Fast done  idx %2x/%2x SA %2x "
+                         "NMEA2000: Fast done  idx %2x/%2x SA %u "
                          "flen %2x %6d\n",
                          session->driver.nmea2000.idx,
                          frame->data[0],
@@ -1619,7 +1619,7 @@ static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
             /* error? or packets out of order?
              * reset FAST expected?? */
             GPSD_LOG(LOG_WARN, &session->context->errout,
-                 "NMEA2000: Fast error  idx%2x/%2x SA %2x flen %2x %6d\n",
+                 "NMEA2000: Fast error  idx%2x/%2x SA %u flen %2x %6d\n",
                  session->driver.nmea2000.idx,
                  frame->data[0],
                  session->driver.nmea2000.source_addr,
@@ -1946,9 +1946,8 @@ void nmea2000_close(struct gps_device_t *session)
         for (l1 = 0; l1 < NMEA2000_NETS; l1++) {
             for (l2 = 0; l2 < NMEA2000_ADDRS; l2++) {
                 if (session == nmea2000_units[l1][l2]) {
-                    session->driver.nmea2000.sa_valid = false;
-                    session->driver.nmea2000.source_addr = 0;
-                    session->driver.nmea2000.can_net = 0;
+                    memset(&session->driver.nmea2000, 0,
+                           sizeof(session->driver.nmea2000));
                     nmea2000_units[l1][l2] = NULL;
                 }
             }
