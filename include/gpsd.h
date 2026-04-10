@@ -122,6 +122,7 @@ extern "C" {
  *      gps_lexer_t inbuffer, outbuffer and stashbuffer same size.
  *      remove unused gps_device_t.driver.nmea2000.pgnlist
  *      add const to gps_device_t.driver.nmea2000.workpgn
+ *      gps_device_t.driver.nmea2000.unit to source_addr
  *
  */
 
@@ -857,8 +858,8 @@ struct gps_device_t {
         struct {
             unsigned int can_msgcnt;
             unsigned int can_net;
-            unsigned int unit;
-            bool unit_valid;
+            unsigned int source_addr;   // SA
+            bool sa_valid;
             int mode;
             unsigned int mode_valid;
             unsigned int idx;

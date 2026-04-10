@@ -103,7 +103,7 @@ static void print_data(struct gps_device_t *session, const PGN *pgn)
 
     GPSD_LOG(LOG_IO, &session->context->errout,
              "NMEA2000: pgn %6d sa %3d len %zu %s\n",
-             pgn->pgn, session->driver.nmea2000.unit, len, pgn->name);
+             pgn->pgn, session->driver.nmea2000.source_addr, len, pgn->name);
 
     for (l1 = 0; l1 < len; l1++) {
         if (0 == (l1 % 20) &&
@@ -419,7 +419,7 @@ static gps_mask_t hnd_129539(unsigned char *bu, size_t len UNUSED,
              "NMEA2000: pgn %6d(%3d): sid:%02x hdop:%5.2f "
              "vdop:%5.2f tdop:%5.2f\n",
              pgn->pgn,
-             session->driver.nmea2000.unit,
+             session->driver.nmea2000.source_addr,
              session->driver.nmea2000.sid[1],
              session->gpsdata.dop.hdop,
              session->gpsdata.dop.vdop,
@@ -445,7 +445,7 @@ static gps_mask_t hnd_129540(unsigned char *bu, size_t len,
         // Handle a CVE for overrunning skyview[]
         GPSD_LOG(LOG_WARN, &session->context->errout,
                  "NMEA2000: pgn %6d(%3d): Too many sats %d\n",
-                 pgn->pgn, session->driver.nmea2000.unit,
+                 pgn->pgn, session->driver.nmea2000.source_addr,
                  session->gpsdata.satellites_visible);
         session->gpsdata.satellites_visible = MAXCHANNELS;
     }
@@ -453,7 +453,7 @@ static gps_mask_t hnd_129540(unsigned char *bu, size_t len,
     if (len != expected_len) {
         GPSD_LOG(LOG_WARN, &session->context->errout,
                  "NMEA2000: pgn %6d(%3d): wrong length %zu s/b %zu\n",
-                 pgn->pgn, session->driver.nmea2000.unit,
+                 pgn->pgn, session->driver.nmea2000.source_addr,
                  len, expected_len);
         return 0;
     }
@@ -668,7 +668,7 @@ static gps_mask_t hnd_129029(unsigned char *bu, size_t len UNUSED,
     GPSD_LOG(LOG_DATA, &session->context->errout,
              "NMEA2000: pgn %6d(%3d): sid:%02x hdop:%5.2f pdop:%5.2f\n",
              pgn->pgn,
-             session->driver.nmea2000.unit,
+             session->driver.nmea2000.source_addr,
              session->driver.nmea2000.sid[1],
              session->gpsdata.dop.hdop,
              session->gpsdata.dop.pdop);
@@ -1516,27 +1516,27 @@ static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
              "NMEA2000: source_prio %u SA %u daddr %u\n",
              source_prio, source_addr, daddr);
 
-    if (!session->driver.nmea2000.unit_valid) {
+    if (!session->driver.nmea2000.source_addr) {
         unsigned int l1, l2;
 
         for (l1 = 0; l1 < NMEA2000_NETS; l1++) {
             for (l2 = 0; l2 < NMEA2000_ADDRS; l2++) {
                 if (session == nmea2000_units[l1][l2]) {
-                    session->driver.nmea2000.unit = l2;
-                    session->driver.nmea2000.unit_valid = true;
+                    session->driver.nmea2000.source_addr = l2;
+                    session->driver.nmea2000.sa_valid = true;
                     session->driver.nmea2000.can_net = l1;
                     can_net = l1;
                 }
             }
         }
 
-        session->driver.nmea2000.unit = source_addr;
-        session->driver.nmea2000.unit_valid = true;
+        session->driver.nmea2000.source_addr = source_addr;
+        session->driver.nmea2000.sa_valid = true;
         nmea2000_units[can_net][source_addr] = session;
     }
 
-    if (source_addr == session->driver.nmea2000.unit) {
-        // current unit number.  Current net???
+    if (source_addr == session->driver.nmea2000.source_addr) {
+        // current source_addr.  Current net???
         const PGN *work = search_pgnlist(source_pgn);
 
         if (NULL == work) {
@@ -1562,7 +1562,7 @@ static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
             GPSD_LOG(LOG_ERROR, &session->context->errout,
                      "NMEA2000: Set idx    %2x    %2x %2x %6d\n",
                      frame->data[0],
-                     session->driver.nmea2000.unit,
+                     session->driver.nmea2000.source_addr,
                      frame->data[1],
                      source_pgn);
 #endif  // of #if NMEA2000_FAST_DEBUG
@@ -1602,7 +1602,7 @@ static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
                          "flen %2x %6d\n",
                          session->driver.nmea2000.idx,
                          frame->data[0],
-                         session->driver.nmea2000.unit,
+                         session->driver.nmea2000.source_addr,
                          (unsigned)session->driver.nmea2000.fast_packet_len,
                          source_pgn);
                 session->driver.nmea2000.workpgn = (const void *)work;
@@ -1622,7 +1622,7 @@ static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
                  "NMEA2000: Fast error  idx%2x/%2x SA %2x flen %2x %6d\n",
                  session->driver.nmea2000.idx,
                  frame->data[0],
-                 session->driver.nmea2000.unit,
+                 session->driver.nmea2000.source_addr,
                  (unsigned)session->driver.nmea2000.fast_packet_len,
                  source_pgn);
         }
@@ -1896,7 +1896,7 @@ int nmea2000_open(struct gps_device_t *session)
         can_filter.can_mask = CAN_EFF_FLAG | CAN_RTR_FLAG;
         can_filter.can_id = CAN_EFF_FLAG;
 
-        session->driver.nmea2000.unit_valid = false;
+        session->driver.nmea2000.sa_valid = false;
         // no source addr, yet.
         memset(nmea2000_units[can_net], 0, sizeof(nmea2000_units[can_net]));
     } else {
@@ -1905,8 +1905,8 @@ int nmea2000_open(struct gps_device_t *session)
         can_filter.can_id = CAN_EFF_FLAG | source_addr;
 
         nmea2000_units[can_net][source_addr] = session;
-        session->driver.nmea2000.unit = source_addr;
-        session->driver.nmea2000.unit_valid = true;
+        session->driver.nmea2000.source_addr = source_addr;
+        session->driver.nmea2000.sa_valid = true;
     }
 
     status = setsockopt(sock, SOL_CAN_RAW, CAN_RAW_FILTER,
@@ -1940,14 +1940,14 @@ void nmea2000_close(struct gps_device_t *session)
     (void)close(session->gpsdata.gps_fd);
     INVALIDATE_SOCKET(session->gpsdata.gps_fd);
 
-    if (session->driver.nmea2000.unit_valid) {
+    if (session->driver.nmea2000.sa_valid) {
         unsigned int l1, l2;
 
         for (l1 = 0; l1 < NMEA2000_NETS; l1++) {
             for (l2 = 0; l2 < NMEA2000_ADDRS; l2++) {
                 if (session == nmea2000_units[l1][l2]) {
-                    session->driver.nmea2000.unit_valid = false;
-                    session->driver.nmea2000.unit = 0;
+                    session->driver.nmea2000.sa_valid = false;
+                    session->driver.nmea2000.source_addr = 0;
                     session->driver.nmea2000.can_net = 0;
                     nmea2000_units[l1][l2] = NULL;
                 }
