@@ -88,32 +88,37 @@ static int scale_int(int32_t var, const int64_t factor)
     return (int)ret;
 }
 
-static void print_data(struct gps_context_t *context,
-                       unsigned char *buffer, int len, const PGN *pgn)
+static void print_data(struct gps_device_t *session, const PGN *pgn)
 {
-    if (LOG_IO <= libgps_debuglevel) {
-        int   l1;
-        char  bu[128];
-        int ptr = 0;
-        int l2 = snprintf(&bu[ptr], sizeof(bu),
-                          "NMEA2000: got data:%6u:%3d: ", pgn->pgn, len);
+    unsigned char *buffer = session->lexer.outbuffer;
+    size_t len = session->lexer.outbuflen;
+    size_t l1;
+    int l2 = 0;
+    int idx = 0;
+    char bu[128];
 
-        ptr += l2;
-        for (l1 = 0; l1 < len; l1++) {
-            if (0 == (l1 % 20) &&
-                0 != l1) {
-                GPSD_LOG(LOG_IO, &context->errout, "%s\n", bu);
-                ptr = 0;
-                // FIXME: check buffer overrun
-                l2 = sprintf(&bu[ptr], "                   : ");
-                ptr += l2;
-            }
-            // FIXME: check buffer overrun
-            l2 = sprintf(&bu[ptr], "%02ux ", (unsigned int)buffer[l1]);
-            ptr += l2;
-        }
-        GPSD_LOG(LOG_IO, &context->errout, "%s\n", bu);
+    if (LOG_IO > libgps_debuglevel) {
+        return;
     }
+
+    GPSD_LOG(LOG_IO, &session->context->errout,
+             "NMEA2000: pgn %6d sa %3d len %zu %s\n",
+             pgn->pgn, session->driver.nmea2000.unit, len, pgn->name);
+
+    for (l1 = 0; l1 < len; l1++) {
+        if (0 == (l1 % 20) &&
+            0 != l1) {
+            GPSD_LOG(LOG_IO, &session->context->errout,
+                     "NMEA2000: got data: %s\n", bu);
+            idx = 0;
+            bu[0] = '\0';
+        }
+        // FIXME: check buffer overrun
+        l2 = sprintf(&bu[idx], "x%02x ", (unsigned)buffer[l1]);
+        idx += l2;
+    }
+    GPSD_LOG(LOG_IO, &session->context->errout,
+             "NMEA2000: got data: %s\n", bu);
 }
 
 static gps_mask_t get_mode(struct gps_device_t *session)
@@ -1686,11 +1691,7 @@ static gps_mask_t nmea2000_parse_input(struct gps_device_t *session)
     work = (const PGN *)session->driver.nmea2000.workpgn;
 
     if (NULL != work) {
-        print_data(session->context, session->lexer.outbuffer,
-                   session->lexer.outbuflen, work);
-        GPSD_LOG(LOG_IO, &session->context->errout,
-                 "NMEA2000: pgn %6d sa %3d %s\n",
-                 work->pgn, session->driver.nmea2000.unit, work->name);
+        print_data(session, work);
         mask = (work->func)(session->lexer.outbuffer,
                             (int)session->lexer.outbuflen, work, session);
         session->driver.nmea2000.workpgn = NULL;
