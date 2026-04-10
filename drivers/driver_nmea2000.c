@@ -410,7 +410,7 @@ static gps_mask_t hnd_129539(struct gps_device_t *session, const PGN *pgn)
     mask                            |= DOP_SET;
 
     GPSD_LOG(LOG_DATA, &session->context->errout,
-             "NMEA2000: pgn %6d(%3d): sid:%02x hdop:%5.2f "
+             "NMEA2000: pgn %6d SA %u sid:%02x hdop:%5.2f "
              "vdop:%5.2f tdop:%5.2f\n",
              pgn->pgn,
              session->driver.nmea2000.source_addr,
@@ -438,7 +438,7 @@ static gps_mask_t hnd_129540(struct gps_device_t *session, const PGN *pgn)
     if (MAXCHANNELS <= session->gpsdata.satellites_visible) {
         // Handle a CVE for overrunning skyview[]
         GPSD_LOG(LOG_WARN, &session->context->errout,
-                 "NMEA2000: pgn %6d(%3d): Too many sats %d\n",
+                 "NMEA2000: pgn %6d SA %u Too many sats %d\n",
                  pgn->pgn, session->driver.nmea2000.source_addr,
                  session->gpsdata.satellites_visible);
         session->gpsdata.satellites_visible = MAXCHANNELS;
@@ -446,7 +446,7 @@ static gps_mask_t hnd_129540(struct gps_device_t *session, const PGN *pgn)
     expected_len = 3 + (12 * session->gpsdata.satellites_visible);
     if (len != expected_len) {
         GPSD_LOG(LOG_WARN, &session->context->errout,
-                 "NMEA2000: pgn %6d(%3d): wrong length %zu s/b %zu\n",
+                 "NMEA2000: pgn %6d SA %u wrong length %zu s/b %zu\n",
                  pgn->pgn, session->driver.nmea2000.source_addr,
                  len, expected_len);
         return 0;
@@ -659,7 +659,7 @@ static gps_mask_t hnd_129029(struct gps_device_t *session, const PGN *pgn)
     mask |= DOP_SET;
 
     GPSD_LOG(LOG_DATA, &session->context->errout,
-             "NMEA2000: pgn %6d(%3d): sid:%02x hdop:%5.2f pdop:%5.2f\n",
+             "NMEA2000: pgn %6d SA %u sid:%02x hdop:%5.2f pdop:%5.2f\n",
              pgn->pgn,
              session->driver.nmea2000.source_addr,
              session->driver.nmea2000.sid[1],
@@ -1551,7 +1551,7 @@ static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
             session->driver.nmea2000.idx = frame->data[0];
 #if NMEA2000_FAST_DEBUG
             GPSD_LOG(LOG_ERROR, &session->context->errout,
-                     "NMEA2000: Set idx    %2x    %2x %2x %6d\n",
+                     "NMEA2000: Set idx %u SA %u %2x %6d\n",
                      frame->data[0],
                      session->driver.nmea2000.source_addr,
                      frame->data[1],
@@ -1739,7 +1739,7 @@ int nmea2000_open(struct gps_device_t *session)
         if ((0 > source_addr) ||
             (NMEA2000_ADDRS <= source_addr)) {
             GPSD_LOG(LOG_ERROR, &session->context->errout,
-                     "NMEA2000 open: Unit number %d out of range.\n",
+                     "NMEA2000 open: SA %u out of range.\n",
                      source_addr);
             return -1;
         }
