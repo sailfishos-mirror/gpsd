@@ -65,7 +65,7 @@ typedef struct PGN {
     unsigned int pgn;
     char  fast;
     char  type;
-    gps_mask_t (* func)(struct gps_device_t *session, const struct PGN *pgn);
+    gps_mask_t (* func)(struct gps_device_t *session);
     const char *name;
 } PGN;
 
@@ -396,10 +396,11 @@ static int scale_int(int32_t var, const int64_t factor)
     return (int)ret;
 }
 
-static void print_data(struct gps_device_t *session, const PGN *pgn)
+static void print_data(struct gps_device_t *session)
 {
     unsigned char *buffer = session->lexer.outbuffer;
     size_t len = session->lexer.outbuflen;
+    const PGN *pgn = (const PGN *)session->driver.nmea2000.workpgn;
     size_t l1;
     int l2 = 0;
     int idx = 0;
@@ -523,8 +524,7 @@ static double ais_direction(unsigned int val, double scale)
 /*
  *   PGN 59392: ISO Acknowledgment
  */
-static gps_mask_t hnd_059392(struct gps_device_t *session UNUSED,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_059392(struct gps_device_t *session UNUSED)
 {
     return 0;
 }
@@ -533,8 +533,7 @@ static gps_mask_t hnd_059392(struct gps_device_t *session UNUSED,
 /*
  *   PGN 60928: ISO Address Claim
  */
-static gps_mask_t hnd_060928(struct gps_device_t *session UNUSED,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_060928(struct gps_device_t *session UNUSED)
 {
     return 0;
 }
@@ -543,8 +542,7 @@ static gps_mask_t hnd_060928(struct gps_device_t *session UNUSED,
 /*
  *   PGN 126208: NMEA Command/Request/Acknowledge
  */
-static gps_mask_t hnd_126208(struct gps_device_t *session UNUSED,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_126208(struct gps_device_t *session UNUSED)
 {
     return 0;
 }
@@ -553,8 +551,7 @@ static gps_mask_t hnd_126208(struct gps_device_t *session UNUSED,
 /*
  *   PGN 126464: ISO Transmit/Receive PGN List
  */
-static gps_mask_t hnd_126464(struct gps_device_t *session UNUSED,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_126464(struct gps_device_t *session UNUSED)
 {
     return 0;
 }
@@ -562,10 +559,10 @@ static gps_mask_t hnd_126464(struct gps_device_t *session UNUSED,
 /*
  *   PGN 126720: Maretron proprietary, used by Garmin, etc.:
  */
-static gps_mask_t hnd_126720(struct gps_device_t *session UNUSED,
-                             const PGN *pgn)
+static gps_mask_t hnd_126720(struct gps_device_t *session UNUSED)
 {
     unsigned char *bu = session->lexer.outbuffer;
+    const PGN *pgn = (const PGN *)session->driver.nmea2000.workpgn;
 
     unsigned word0 = getleu16(bu, 0);
     unsigned mfg = word0 & 0x07ff;           // 11 bits Manufacturer Code
@@ -586,8 +583,7 @@ static gps_mask_t hnd_126720(struct gps_device_t *session UNUSED,
 /*
  *   PGN 126996: ISO Product Information
  */
-static gps_mask_t hnd_126996(struct gps_device_t *session UNUSED,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_126996(struct gps_device_t *session UNUSED)
 {
     return 0;
 }
@@ -603,8 +599,7 @@ static gps_mask_t hnd_126996(struct gps_device_t *session UNUSED,
  *   5 Variation
  *   6 Reserved B
  */
-static gps_mask_t hnd_127258(struct gps_device_t *session UNUSED,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_127258(struct gps_device_t *session UNUSED)
 {
     // FIXME?  Get magnetic variation
     return 0;
@@ -614,8 +609,7 @@ static gps_mask_t hnd_127258(struct gps_device_t *session UNUSED,
 /*
  *   PGN 129025: GNSS Position Rapid Update
  */
-static gps_mask_t hnd_129025(struct gps_device_t *session,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_129025(struct gps_device_t *session)
 {
     unsigned char *bu = session->lexer.outbuffer;
 
@@ -629,8 +623,7 @@ static gps_mask_t hnd_129025(struct gps_device_t *session,
 /*
  *   PGN 129026: GNSS COG and SOG Rapid Update
  */
-static gps_mask_t hnd_129026(struct gps_device_t *session,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_129026(struct gps_device_t *session)
 {
     unsigned char *bu = session->lexer.outbuffer;
 
@@ -677,8 +670,7 @@ static gps_mask_t hnd_129026(struct gps_device_t *session,
  *                  Signed: false
  *
  */
-static gps_mask_t hnd_126992(struct gps_device_t *session,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_126992(struct gps_device_t *session)
 {
     unsigned char *bu = session->lexer.outbuffer;
 
@@ -704,9 +696,10 @@ static const int mode_tab[] = {MODE_NO_FIX, MODE_2D, MODE_3D, MODE_NO_FIX,
 /*
  *   PGN 129539: GNSS DOPs
  */
-static gps_mask_t hnd_129539(struct gps_device_t *session, const PGN *pgn)
+static gps_mask_t hnd_129539(struct gps_device_t *session)
 {
     unsigned char *bu = session->lexer.outbuffer;
+    const PGN *pgn = (const PGN *)session->driver.nmea2000.workpgn;
     gps_mask_t mask = 0;
     unsigned int req_mode;
     unsigned int act_mode;
@@ -749,9 +742,10 @@ static gps_mask_t hnd_129539(struct gps_device_t *session, const PGN *pgn)
 /*
  *   PGN 129540: GNSS Satellites in View
  */
-static gps_mask_t hnd_129540(struct gps_device_t *session, const PGN *pgn)
+static gps_mask_t hnd_129540(struct gps_device_t *session)
 {
     unsigned char *bu = session->lexer.outbuffer;
+    const PGN *pgn = (const PGN *)session->driver.nmea2000.workpgn;
     size_t len  = session->lexer.outbuflen;
     int    l1;
     size_t expected_len;
@@ -916,9 +910,10 @@ static gps_mask_t hnd_129540(struct gps_device_t *session, const PGN *pgn)
  *                   Signed: false
  *
  */
-static gps_mask_t hnd_129029(struct gps_device_t *session, const PGN *pgn)
+static gps_mask_t hnd_129029(struct gps_device_t *session)
 {
     unsigned char *bu = session->lexer.outbuffer;
+    const PGN *pgn = (const PGN *)session->driver.nmea2000.workpgn;
     gps_mask_t mask = 0;
     uint64_t usecs;    // time in us
 
@@ -995,8 +990,7 @@ static gps_mask_t hnd_129029(struct gps_device_t *session, const PGN *pgn)
 /*
  *   PGN 129038: AIS  Class A Position Report
  */
-static gps_mask_t hnd_129038(struct gps_device_t *session,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_129038(struct gps_device_t *session)
 {
     unsigned char *bu = session->lexer.outbuffer;
     size_t len  = session->lexer.outbuflen;
@@ -1031,8 +1025,7 @@ static gps_mask_t hnd_129038(struct gps_device_t *session,
 /*
  *   PGN 129039: AIS  Class B Position Report
  */
-static gps_mask_t hnd_129039(struct gps_device_t *session,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_129039(struct gps_device_t *session)
 {
     unsigned char *bu = session->lexer.outbuffer;
     size_t len  = session->lexer.outbuflen;
@@ -1074,8 +1067,7 @@ static gps_mask_t hnd_129039(struct gps_device_t *session,
  *
  *  No test case for this message at the moment
  */
-static gps_mask_t hnd_129040(struct gps_device_t *session,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_129040(struct gps_device_t *session)
 {
     unsigned char *bu = session->lexer.outbuffer;
     size_t len  = session->lexer.outbuflen;
@@ -1134,8 +1126,7 @@ static gps_mask_t hnd_129040(struct gps_device_t *session,
 /*
  *   PGN 129793: AIS UTC and Date Report
  */
-static gps_mask_t hnd_129793(struct gps_device_t *session,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_129793(struct gps_device_t *session)
 {
     unsigned char *bu = session->lexer.outbuffer;
     size_t len  = session->lexer.outbuflen;
@@ -1194,8 +1185,7 @@ static gps_mask_t hnd_129793(struct gps_device_t *session,
 /*
  *   PGN 129794: AIS Class A Static and Voyage Related Data
  */
-static gps_mask_t hnd_129794(struct gps_device_t *session,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_129794(struct gps_device_t *session)
 {
     unsigned char *bu = session->lexer.outbuffer;
     size_t len  = session->lexer.outbuflen;
@@ -1328,8 +1318,7 @@ static gps_mask_t hnd_129794(struct gps_device_t *session,
  *
  * No test case for this message at the moment
  */
-static gps_mask_t hnd_129798(struct gps_device_t *session,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_129798(struct gps_device_t *session)
 {
     unsigned char *bu = session->lexer.outbuffer;
     size_t len  = session->lexer.outbuflen;
@@ -1366,8 +1355,7 @@ static gps_mask_t hnd_129798(struct gps_device_t *session,
  *
  * No test case for this message at the moment
  */
-static gps_mask_t hnd_129802(struct gps_device_t *session,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_129802(struct gps_device_t *session)
 {
     unsigned char *bu = session->lexer.outbuffer;
     size_t len  = session->lexer.outbuflen;
@@ -1387,8 +1375,7 @@ static gps_mask_t hnd_129802(struct gps_device_t *session,
 /*
  *   PGN 129809: AIS Class B CS Static Data Report, Part A
  */
-static gps_mask_t hnd_129809(struct gps_device_t *session,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_129809(struct gps_device_t *session)
 {
     unsigned char *bu = session->lexer.outbuffer;
     size_t len  = session->lexer.outbuflen;
@@ -1425,8 +1412,7 @@ static gps_mask_t hnd_129809(struct gps_device_t *session,
 /*
  *   PGN 129810: AIS Class B CS Static Data Report, Part B
  */
-static gps_mask_t hnd_129810(struct gps_device_t *session,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_129810(struct gps_device_t *session)
 {
     unsigned char *bu = session->lexer.outbuffer;
     size_t len  = session->lexer.outbuflen;
@@ -1519,8 +1505,7 @@ static gps_mask_t hnd_129810(struct gps_device_t *session,
 /*
  *   PGN 127506: PWR DC Detailed Status
  */
-static gps_mask_t hnd_127506(struct gps_device_t *session UNUSED,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_127506(struct gps_device_t *session UNUSED)
 {
     return 0;
 }
@@ -1529,8 +1514,7 @@ static gps_mask_t hnd_127506(struct gps_device_t *session UNUSED,
 /*
  *   PGN 127508: PWR Battery Status
  */
-static gps_mask_t hnd_127508(struct gps_device_t *session UNUSED ,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_127508(struct gps_device_t *session UNUSED)
 {
     return 0;
 }
@@ -1539,8 +1523,7 @@ static gps_mask_t hnd_127508(struct gps_device_t *session UNUSED ,
 /*
  *   PGN 127513: PWR Battery Configuration Status
  */
-static gps_mask_t hnd_127513(struct gps_device_t *session UNUSED,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_127513(struct gps_device_t *session UNUSED)
 {
     return 0;
 }
@@ -1549,8 +1532,7 @@ static gps_mask_t hnd_127513(struct gps_device_t *session UNUSED,
 /*
  *   PGN 127245: NAV Rudder
  */
-static gps_mask_t hnd_127245(struct gps_device_t *session UNUSED,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_127245(struct gps_device_t *session UNUSED)
 {
     return 0;
 }
@@ -1559,8 +1541,7 @@ static gps_mask_t hnd_127245(struct gps_device_t *session UNUSED,
 /*
  *   PGN 127250: NAV Vessel Heading
  */
-static gps_mask_t hnd_127250(struct gps_device_t *session UNUSED,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_127250(struct gps_device_t *session UNUSED)
 {
     unsigned char *bu = session->lexer.outbuffer;
     int aux;
@@ -1585,8 +1566,7 @@ static gps_mask_t hnd_127250(struct gps_device_t *session UNUSED,
 /*
  *   PGN 128259: NAV Speed
  */
-static gps_mask_t hnd_128259(struct gps_device_t *session UNUSED,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_128259(struct gps_device_t *session UNUSED)
 {
     return 0;
 }
@@ -1595,8 +1575,7 @@ static gps_mask_t hnd_128259(struct gps_device_t *session UNUSED,
 /*
  *   PGN 128267: NAV Water Depth
  */
-static gps_mask_t hnd_128267(struct gps_device_t *session UNUSED,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_128267(struct gps_device_t *session UNUSED)
 {
     unsigned char *bu = session->lexer.outbuffer;
 
@@ -1608,8 +1587,7 @@ static gps_mask_t hnd_128267(struct gps_device_t *session UNUSED,
 /*
  *   PGN 128275: NAV Distance Log
  */
-static gps_mask_t hnd_128275(struct gps_device_t *session UNUSED,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_128275(struct gps_device_t *session UNUSED)
 {
     return 0;
 }
@@ -1618,8 +1596,7 @@ static gps_mask_t hnd_128275(struct gps_device_t *session UNUSED,
 /*
  *   PGN 129283: NAV Cross Track Error
  */
-static gps_mask_t hnd_129283(struct gps_device_t *session UNUSED,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_129283(struct gps_device_t *session UNUSED)
 {
     return 0;
 }
@@ -1628,8 +1605,7 @@ static gps_mask_t hnd_129283(struct gps_device_t *session UNUSED,
 /*
  *   PGN 129284: NAV Navigation Data
  */
-static gps_mask_t hnd_129284(struct gps_device_t *session UNUSED,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_129284(struct gps_device_t *session UNUSED)
 {
     return 0;
 }
@@ -1638,8 +1614,7 @@ static gps_mask_t hnd_129284(struct gps_device_t *session UNUSED,
 /*
  *   PGN 129285: NAV Navigation - Route/WP Information
  */
-static gps_mask_t hnd_129285(struct gps_device_t *session UNUSED,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_129285(struct gps_device_t *session UNUSED)
 {
     return 0;
 }
@@ -1648,8 +1623,7 @@ static gps_mask_t hnd_129285(struct gps_device_t *session UNUSED,
 /*
  *   PGN 130306: NAV Wind Data
  */
-static gps_mask_t hnd_130306(struct gps_device_t *session UNUSED,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_130306(struct gps_device_t *session UNUSED)
 {
     return 0;
 }
@@ -1658,8 +1632,7 @@ static gps_mask_t hnd_130306(struct gps_device_t *session UNUSED,
 /*
  *   PGN 130310: NAV Water Temp., Outside Air Temp., Atmospheric Pressure
  */
-static gps_mask_t hnd_130310(struct gps_device_t *session UNUSED,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_130310(struct gps_device_t *session UNUSED)
 {
     return 0;
 }
@@ -1668,8 +1641,7 @@ static gps_mask_t hnd_130310(struct gps_device_t *session UNUSED,
 /*
  *   PGN 130311: NAV Environmental Parameters
  */
-static gps_mask_t hnd_130311(struct gps_device_t *session UNUSED,
-                             const PGN *pgn UNUSED)
+static gps_mask_t hnd_130311(struct gps_device_t *session UNUSED)
 {
     return 0;
 }
@@ -2003,8 +1975,8 @@ static gps_mask_t nmea2000_parse_input(struct gps_device_t *session)
     work = (const PGN *)session->driver.nmea2000.workpgn;
 
     if (NULL != work) {
-        print_data(session, work);
-        mask = (work->func)(session, work);
+        print_data(session);
+        mask = (work->func)(session);
         session->driver.nmea2000.workpgn = NULL;
     }
     session->lexer.outbuflen = 0;
