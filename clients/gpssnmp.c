@@ -567,6 +567,20 @@ static const struct oid_mib_xlate *oid_lookup(const char *oid,
             put_line(timespec_to_iso8601(*(timespec_t *)pxlate->pval,
                                          outbuf, sizeof(outbuf)));
             break;
+        case t_schort:
+            FALLTHROUGH
+        case t_slongint:
+            FALLTHROUGH
+        case t_sbyte:
+            FALLTHROUGH
+        case t_ubyte:
+            FALLTHROUGH
+        case t_uinteger:
+            FALLTHROUGH
+        case t_ulongint:
+            FALLTHROUGH
+        case t_ushort:
+            FALLTHROUGH
         default:
             (void)fprintf(logfd,
                           PROGNAME ": ERROR: internal error, OID %s\n\n",
