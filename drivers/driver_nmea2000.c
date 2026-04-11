@@ -988,7 +988,7 @@ static gps_mask_t hnd_129029(struct gps_device_t *session)
 
 
 /*
- *   PGN 129038: AIS  Class A Position Report
+ *   PGN 129038: AIS Class A Position Report
  */
 static gps_mask_t hnd_129038(struct gps_device_t *session)
 {
@@ -1023,7 +1023,7 @@ static gps_mask_t hnd_129038(struct gps_device_t *session)
 
 
 /*
- *   PGN 129039: AIS  Class B Position Report
+ *   PGN 129039: AIS Class B Position Report
  */
 static gps_mask_t hnd_129039(struct gps_device_t *session)
 {
@@ -1505,8 +1505,25 @@ static gps_mask_t hnd_129810(struct gps_device_t *session)
 /*
  *   PGN 127506: PWR DC Detailed Status
  */
-static gps_mask_t hnd_127506(struct gps_device_t *session UNUSED)
+static gps_mask_t hnd_127506(struct gps_device_t *session)
 {
+    unsigned char *bu = session->lexer.outbuffer;
+    const PGN *pgn = (const PGN *)session->driver.nmea2000.workpgn;
+
+    unsigned sid = bu[0];
+    unsigned instance = bu[1];
+    unsigned dc_type = bu[2];
+    unsigned charge = bu[3];
+    unsigned health = bu[4];
+    unsigned timer = getles16(bu, 5);
+    unsigned ripple = getles16(bu, 7);
+    unsigned cap = getles16(bu, 9);
+
+    GPSD_LOG(LOG_PROG, &session->context->errout,
+             "NMEA2000: pgn %6d sid %u instance %u DC type %u charge %u "
+             "health %u time %u ripple %u cap %u\n",
+             pgn->pgn, sid, instance, dc_type, charge, health,
+             timer, ripple, cap);
     return 0;
 }
 
@@ -1679,11 +1696,11 @@ static const PGN pgnlst[] = {{ 59392, 0, 0, hnd_059392, "ISO Acknowledgment"},
                              {129029, 1, 1, hnd_129029,
                               "GNSS Positition Data"},
                              {129038, 1, 2, hnd_129038,
-                              "AIS  Class A Position Report"},
+                              "AIS Class A Position Report"},
                              {129039, 1, 2, hnd_129039,
-                              "AIS  Class B Position Report"},
+                              "AIS Class B Position Report"},
                              {129040, 1, 2, hnd_129040,
-                              "AIS  Class B Extended Position Report"},
+                              "AIS Class B Extended Position Report"},
                              {129283, 0, 0, hnd_129283,
                               "NAV Cross Track Error"},
                              {129284, 1, 0, hnd_129284, "NAV Navigation Data"},
@@ -1695,15 +1712,15 @@ static const PGN pgnlst[] = {{ 59392, 0, 0, hnd_059392, "ISO Acknowledgment"},
                              {129793, 1, 2, hnd_129793,
                               "AIS  UTC and Date report"},
                              {129794, 1, 2, hnd_129794,
-                              "AIS  Class A Static and Voyage Related Data"},
+                              "AIS Class A Static and Voyage Related Data"},
                              {129798, 1, 2, hnd_129798,
                               "AIS  SAR Aircraft Position Report"},
                              {129802, 1, 2, hnd_129802,
                               "AIS  Safety Related Broadcast Message"},
                              {129809, 1, 2, hnd_129809,
-                              "AIS  Class B CS Static Data Report, Part A"},
+                              "AIS Class B CS Static Data Report, Part A"},
                              {129810, 1, 2, hnd_129810,
-                              "AIS  Class B CS Static Data Report, Part B"},
+                              "AIS Class B CS Static Data Report, Part B"},
                              {130306, 0, 4, hnd_130306, "NAV Wind Data"},
                              {130310, 0, 4, hnd_130310,
                               "NAV Water Temp., Outside Air Temp., "
