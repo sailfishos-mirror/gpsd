@@ -627,11 +627,16 @@ static gps_mask_t hnd_129026(struct gps_device_t *session)
 {
     unsigned char *bu = session->lexer.outbuffer;
 
+    unsigned cog_ref = (bu[1] >> 6) & 0x03;
     session->driver.nmea2000.sid[0] = bu[0];
 
     session->newdata.track = getleu16(bu, 2) * 1e-4 * RAD_2_DEG;
     session->newdata.speed = getleu16(bu, 4) * 1e-2;
 
+    GPSD_LOG(LOG_PROG, &session->context->errout,
+             "NMEA2000: pgn 129026 sid %u ref %u COG %.3f SOG %.3f\n",
+             session->driver.nmea2000.sid[0], cog_ref,
+             session->newdata.track, session->newdata.speed);
     return SPEED_SET | TRACK_SET | get_mode(session);
 }
 
@@ -913,9 +918,10 @@ static gps_mask_t hnd_129540(struct gps_device_t *session)
 static gps_mask_t hnd_129029(struct gps_device_t *session)
 {
     unsigned char *bu = session->lexer.outbuffer;
-    const PGN *pgn = (const PGN *)session->driver.nmea2000.workpgn;
     gps_mask_t mask = 0;
-    uint64_t usecs;    // time in us
+    uint64_t usecs;                           // time in us
+    unsigned method = (bu[31] >> 4) & 0x0f;
+    unsigned gnss_type = bu[31] & 0x0f;
 
     session->driver.nmea2000.sid[3]  = bu[0];
 
@@ -933,8 +939,7 @@ static gps_mask_t hnd_129029(struct gps_device_t *session)
     session->newdata.altHAE = getles64(bu, 23) * 1e-6;
     mask |= ALTITUDE_SET;
 
-//  printf("mode %x %x\n", (bu[31] >> 4) & 0x0f, bu[31]);
-    switch ((bu[31] >> 4) & 0x0f) {
+    switch (method) {
     case 0:
         session->newdata.status = STATUS_UNK;
         break;
@@ -976,11 +981,15 @@ static gps_mask_t hnd_129029(struct gps_device_t *session)
     session->gpsdata.dop.pdop = getleu16(bu, 36) * 1e-2;
     mask |= DOP_SET;
 
-    GPSD_LOG(LOG_DATA, &session->context->errout,
-             "NMEA2000: pgn %6d SA %u sid:%02x hdop:%5.2f pdop:%5.2f\n",
-             pgn->pgn,
+    GPSD_LOG(LOG_PROG, &session->context->errout,
+             "NMEA2000: pgn 129029 SA %u sid:%02x lat %.2f lon %.2f HAE %.2f "
+             "type %u method %u hdop:%5.2f pdop:%5.2f\n",
              session->driver.nmea2000.source_addr,
-             session->driver.nmea2000.sid[1],
+             session->driver.nmea2000.sid[3],
+             session->newdata.latitude,
+             session->newdata.longitude,
+             session->newdata.altHAE,
+             gnss_type, method,
              session->gpsdata.dop.hdop,
              session->gpsdata.dop.pdop);
     return mask | get_mode(session);
@@ -1700,7 +1709,7 @@ static const PGN pgnlst[] = {{ 59392, 0, 0, hnd_059392, "ISO Acknowledgment"},
                              {129026, 0, 1, hnd_129026,
                               "GNSS COG and SOG Rapid Update"},
                              {129029, 1, 1, hnd_129029,
-                              "GNSS Positition Data"},
+                              "GNSS Position Data"},
                              {129038, 1, 2, hnd_129038,
                               "AIS Class A Position Report"},
                              {129039, 1, 2, hnd_129039,
