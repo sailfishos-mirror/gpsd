@@ -1508,7 +1508,6 @@ static gps_mask_t hnd_129810(struct gps_device_t *session)
 static gps_mask_t hnd_127506(struct gps_device_t *session)
 {
     unsigned char *bu = session->lexer.outbuffer;
-    const PGN *pgn = (const PGN *)session->driver.nmea2000.workpgn;
 
     unsigned sid = bu[0];
     unsigned instance = bu[1];
@@ -1520,9 +1519,9 @@ static gps_mask_t hnd_127506(struct gps_device_t *session)
     unsigned cap = getles16(bu, 9);
 
     GPSD_LOG(LOG_PROG, &session->context->errout,
-             "NMEA2000: pgn %6d sid %u instance %u DC type %u charge %u "
+             "NMEA2000: pgn 127506 sid %u instance %u DC type %u charge %u "
              "health %u time %u ripple %u cap %u\n",
-             pgn->pgn, sid, instance, dc_type, charge, health,
+             sid, instance, dc_type, charge, health,
              timer, ripple, cap);
     return 0;
 }
@@ -1592,11 +1591,18 @@ static gps_mask_t hnd_128259(struct gps_device_t *session UNUSED)
 /*
  *   PGN 128267: NAV Water Depth
  */
-static gps_mask_t hnd_128267(struct gps_device_t *session UNUSED)
+static gps_mask_t hnd_128267(struct gps_device_t *session)
 {
     unsigned char *bu = session->lexer.outbuffer;
 
-    session->gpsdata.attitude.depth = getleu32(bu, 1) *.01;
+    unsigned sid = bu[0];
+    double offset= getleu16(bu, 5) / 1000.0;
+    unsigned range = bu[9];
+    session->gpsdata.attitude.depth = getleu32(bu, 1) / 100.0 ;
+
+    GPSD_LOG(LOG_PROG, &session->context->errout,
+             "NMEA2000: pgn 128267 sid %u depth %.2f offset %.3f range %u\n",
+             sid, session->gpsdata.attitude.depth, offset, range);
     return ONLINE_SET | ATTITUDE_SET;
 }
 
