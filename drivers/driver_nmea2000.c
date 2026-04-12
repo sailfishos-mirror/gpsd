@@ -562,7 +562,6 @@ static gps_mask_t hnd_126464(struct gps_device_t *session UNUSED)
 static gps_mask_t hnd_126720(struct gps_device_t *session UNUSED)
 {
     unsigned char *bu = session->lexer.outbuffer;
-    const PGN *pgn = (const PGN *)session->driver.nmea2000.workpgn;
 
     unsigned word0 = getleu16(bu, 0);
     unsigned mfg = word0 & 0x07ff;           // 11 bits Manufacturer Code
@@ -572,74 +571,22 @@ static gps_mask_t hnd_126720(struct gps_device_t *session UNUSED)
     unsigned cmd = bu[3];                    // 8 bits Command
 
     GPSD_LOG(LOG_PROG, &session->context->errout,
-             "NMEA2000: pgn %6d mfg %u indus %u prop %u cmd %u (%s/%s)\n",
-             pgn->pgn, mfg, indus, prop_id, cmd,
+             "NMEA2000: pgn 126720 mfg %u indus %u prop %u cmd %u (%s/%s)\n",
+             mfg, indus, prop_id, cmd,
              val2str(mfg, mfg_ids),
              val2str(indus, indus_ids));
     return 0;
 }
 
-
-/*
- *   PGN 126996: ISO Product Information
- */
-static gps_mask_t hnd_126996(struct gps_device_t *session UNUSED)
-{
-    return 0;
-}
-
-
-/*
- *   PGN 127258: GNSS Magnetic Variation
- *
- *   1 Sequence ID
- *   2 Variation Source
- *   3 Reserved Bits
- *   4 Age of Service (Date)
- *   5 Variation
- *   6 Reserved B
- */
-static gps_mask_t hnd_127258(struct gps_device_t *session UNUSED)
-{
-    // FIXME?  Get magnetic variation
-    return 0;
-}
-
-
-/*
- *   PGN 129025: GNSS Position Rapid Update
- */
-static gps_mask_t hnd_129025(struct gps_device_t *session)
-{
-    unsigned char *bu = session->lexer.outbuffer;
-
-    session->newdata.latitude = getles32(bu, 0) * 1e-7;
-    session->newdata.longitude = getles32(bu, 4) * 1e-7;
-
-    return LATLON_SET | get_mode(session);
-}
-
-
-/*
- *   PGN 129026: GNSS COG and SOG Rapid Update
- */
-static gps_mask_t hnd_129026(struct gps_device_t *session)
-{
-    unsigned char *bu = session->lexer.outbuffer;
-
-    unsigned cog_ref = (bu[1] >> 6) & 0x03;
-    session->driver.nmea2000.sid[0] = bu[0];
-
-    session->newdata.track = getleu16(bu, 2) * 1e-4 * RAD_2_DEG;
-    session->newdata.speed = getleu16(bu, 4) * 1e-2;
-
-    GPSD_LOG(LOG_PROG, &session->context->errout,
-             "NMEA2000: pgn 129026 sid %u ref %u COG %.3f SOG %.3f\n",
-             session->driver.nmea2000.sid[0], cog_ref,
-             session->newdata.track, session->newdata.speed);
-    return SPEED_SET | TRACK_SET | get_mode(session);
-}
-
+static const struct vlist_t time_sources[] = {
+    {0, "GPS"},
+    {1, "GLONASS"},
+    {2, "Radio Station"},
+    {3, "Local Cesium clock"},
+    {4, "Local Rubidium clock"},
+    {5, "Local Crystal clock"},
+    {0, NULL}
+};
 
 /*
  * PGN: 126992 / 00370020 / 1F010 - 8 - System Time
@@ -679,122 +626,240 @@ static gps_mask_t hnd_126992(struct gps_device_t *session)
 {
     unsigned char *bu = session->lexer.outbuffer;
 
-    // uint8_t        sid;
-    // uint8_t        source;
-    uint64_t usecs;       // time in us
+    unsigned sid = bu[0];
+    unsigned source = bu[1] & 0x0f;
+    uint64_t usecs = getleu32(bu, 4) * 100UL;   // time of day in us
 
-    // sid        = bu[0];
-    // source     = bu[1] & 0x0f;
-
-    usecs = getleu32(bu, 4) * (uint64_t)100;
     USTOTS(&session->newdata.time, usecs);
     session->newdata.time.tv_sec += (time_t)(getleu16(bu, 2) * 24 * 60 * 60);
+
+    // casts for 32 bit time_t
+    GPSD_LOG(LOG_PROG, &session->context->errout,
+             "NMEA2000: pgn 126992 sid %u source %u (%s) time %lld %09ld\n",
+             sid, source, val2str(source, time_sources),
+             (long long)session->newdata.time.tv_sec,
+             (long)session->newdata.time.tv_nsec);
 
     return TIME_SET | get_mode(session);
 }
 
 
-static const int mode_tab[] = {MODE_NO_FIX, MODE_2D, MODE_3D, MODE_NO_FIX,
-                               MODE_NO_FIX, MODE_NO_FIX, MODE_NO_FIX,
-                               MODE_NO_FIX};
-
 /*
- *   PGN 129539: GNSS DOPs
+ *   PGN 126996: ISO Product Information
  */
-static gps_mask_t hnd_129539(struct gps_device_t *session)
+static gps_mask_t hnd_126996(struct gps_device_t *session UNUSED)
 {
-    unsigned char *bu = session->lexer.outbuffer;
-    const PGN *pgn = (const PGN *)session->driver.nmea2000.workpgn;
-    gps_mask_t mask = 0;
-    unsigned int req_mode;
-    unsigned int act_mode;
-
-    session->driver.nmea2000.sid[1]  = bu[0];
-
-    session->driver.nmea2000.mode_valid |= 1;
-
-    req_mode = (unsigned int)((bu[1] >> 0) & 0x07);
-    act_mode = (unsigned int)((bu[1] >> 3) & 0x07);
-
-    /* This is a workaround for some GARMIN plotter,
-     * actual mode auto makes no sense for me! */
-    if ((3 == act_mode) &&
-        (3 != req_mode)) {
-        act_mode = req_mode;
-    }
-
-    session->driver.nmea2000.mode    = mode_tab[act_mode];
-
-    session->gpsdata.dop.hdop        = getleu16(bu, 2) * 1e-2;
-    session->gpsdata.dop.vdop        = getleu16(bu, 4) * 1e-2;
-    session->gpsdata.dop.tdop        = getleu16(bu, 6) * 1e-2;
-    mask                            |= DOP_SET;
-
-    GPSD_LOG(LOG_DATA, &session->context->errout,
-             "NMEA2000: pgn %6d SA %u sid:%02x hdop:%5.2f "
-             "vdop:%5.2f tdop:%5.2f\n",
-             pgn->pgn,
-             session->driver.nmea2000.source_addr,
-             session->driver.nmea2000.sid[1],
-             session->gpsdata.dop.hdop,
-             session->gpsdata.dop.vdop,
-             session->gpsdata.dop.tdop);
-
-    return mask | get_mode(session);
+    return 0;
 }
 
 
 /*
- *   PGN 129540: GNSS Satellites in View
+ *   PGN 127245: NAV Rudder
  */
-static gps_mask_t hnd_129540(struct gps_device_t *session)
+static gps_mask_t hnd_127245(struct gps_device_t *session UNUSED)
+{
+    return 0;
+}
+
+
+/*
+ *   PGN 127250: NAV Vessel Heading
+ */
+static gps_mask_t hnd_127250(struct gps_device_t *session UNUSED)
 {
     unsigned char *bu = session->lexer.outbuffer;
-    const PGN *pgn = (const PGN *)session->driver.nmea2000.workpgn;
-    size_t len  = session->lexer.outbuflen;
-    int    l1;
-    size_t expected_len;
+    int aux;
 
-    session->driver.nmea2000.sid[2]           = bu[0];
-    session->gpsdata.satellites_visible       = (int)bu[2];
-    if (MAXCHANNELS <= session->gpsdata.satellites_visible) {
-        // Handle a CVE for overrunning skyview[]
-        GPSD_LOG(LOG_WARN, &session->context->errout,
-                 "NMEA2000: pgn %6d SA %u Too many sats %d\n",
-                 pgn->pgn, session->driver.nmea2000.source_addr,
-                 session->gpsdata.satellites_visible);
-        session->gpsdata.satellites_visible = MAXCHANNELS;
+    session->gpsdata.attitude.heading = getleu16(bu, 1) * RAD_2_DEG * 0.0001;
+//  printf("ATT 0:%8.3f\n",session->gpsdata.attitude.heading);
+    aux = getles16(bu, 3);
+    if (0x07fff != aux) {
+        session->gpsdata.attitude.heading += aux * RAD_2_DEG * 0.0001;
     }
-    expected_len = 3 + (12 * session->gpsdata.satellites_visible);
-    if (len != expected_len) {
-        GPSD_LOG(LOG_WARN, &session->context->errout,
-                 "NMEA2000: pgn %6d SA %u wrong length %zu s/b %zu\n",
-                 pgn->pgn, session->driver.nmea2000.source_addr,
-                 len, expected_len);
-        return 0;
+//  printf("ATT 1:%8.3f %6x\n",session->gpsdata.attitude.heading, aux);
+    aux = getles16(bu, 5);
+    if (0x07fff != aux) {
+        session->gpsdata.attitude.heading += aux * RAD_2_DEG * 0.0001;
     }
+//  printf("ATT 2:%8.3f %6x\n",session->gpsdata.attitude.heading, aux);
 
-    memset(session->gpsdata.skyview, '\0', sizeof(session->gpsdata.skyview));
-    for (l1 = 0; l1 < session->gpsdata.satellites_visible; l1++) {
-        int offset = 3 + (12 * l1);
-        double elev  = getles16(bu, offset + 1) * 1e-4 * RAD_2_DEG;
-        double azi   = getleu16(bu, offset + 3) * 1e-4 * RAD_2_DEG;
-        double snr   = getles16(bu, offset + 5) * 1e-2;
+    return ONLINE_SET | ATTITUDE_SET;
+}
 
-        int svt   = (int)(bu[offset + 11] & 0x0f);
 
-        session->gpsdata.skyview[l1].elevation  = elev;
-        session->gpsdata.skyview[l1].azimuth    = azi;
-        session->gpsdata.skyview[l1].ss         = snr;
-        session->gpsdata.skyview[l1].PRN        = (int16_t)bu[offset];
-        session->gpsdata.skyview[l1].used = false;
-        if ((2 == svt) ||
-            (5 == svt)) {
-            session->gpsdata.skyview[l1].used = true;
-        }
-    }
-    session->driver.nmea2000.mode_valid |= 2;
-    return SATELLITE_SET | USED_IS;
+/*
+ *   PGN 127258: GNSS Magnetic Variation
+ *
+ *   1 Sequence ID
+ *   2 Variation Source
+ *   3 Reserved Bits
+ *   4 Age of Service (Date)
+ *   5 Variation
+ *   6 Reserved B
+ */
+static gps_mask_t hnd_127258(struct gps_device_t *session UNUSED)
+{
+    // FIXME?  Get magnetic variation
+    return 0;
+}
+
+
+static const struct vlist_t dc_types[] = {
+    {0, "Battery"},
+    {1, "Alternator"},
+    {2, "Convertor"},
+    {3, "Solar cell"},
+    {4, "Wind generator"},
+    {0, NULL},
+};
+
+/*
+ *   PGN 127506: PWR DC Detailed Status
+ */
+static gps_mask_t hnd_127506(struct gps_device_t *session)
+{
+    unsigned char *bu = session->lexer.outbuffer;
+
+    unsigned sid = bu[0];
+    unsigned instance = bu[1];
+    unsigned dc_type = bu[2];
+    unsigned charge = bu[3];
+    unsigned health = bu[4];
+    unsigned timer = getles16(bu, 5);
+    unsigned ripple = getles16(bu, 7);
+    unsigned cap = getles16(bu, 9);
+
+    GPSD_LOG(LOG_PROG, &session->context->errout,
+             "NMEA2000: pgn 127506 sid %u instance %u DC type %u (%s) "
+             "charge %u health %u time %u ripple %u cap %u\n",
+             sid, instance, dc_type, val2str(dc_type, dc_types),
+             charge, health, timer, ripple, cap);
+    return 0;
+}
+
+
+/*
+ *   PGN 127508: PWR Battery Status
+ */
+static gps_mask_t hnd_127508(struct gps_device_t *session UNUSED)
+{
+    return 0;
+}
+
+
+/*
+ *   PGN 127513: PWR Battery Configuration Status
+ */
+static gps_mask_t hnd_127513(struct gps_device_t *session UNUSED)
+{
+    return 0;
+}
+
+
+/*
+ *   PGN 128259: NAV Speed
+ */
+static gps_mask_t hnd_128259(struct gps_device_t *session UNUSED)
+{
+    return 0;
+}
+
+
+/*
+ *   PGN 128267: NAV Water Depth
+ */
+static gps_mask_t hnd_128267(struct gps_device_t *session)
+{
+    unsigned char *bu = session->lexer.outbuffer;
+
+    unsigned sid = bu[0];
+    double offset= getleu16(bu, 5) / 1000.0;
+    unsigned range = bu[9];
+    session->gpsdata.attitude.depth = getleu32(bu, 1) / 100.0 ;
+
+    GPSD_LOG(LOG_PROG, &session->context->errout,
+             "NMEA2000: pgn 128267 sid %u depth %.2f offset %.3f range %u\n",
+             sid, session->gpsdata.attitude.depth, offset, range);
+    return ONLINE_SET | ATTITUDE_SET;
+}
+
+
+/*
+ *   PGN 128275: NAV Distance Log
+ */
+static gps_mask_t hnd_128275(struct gps_device_t *session UNUSED)
+{
+    return 0;
+}
+
+
+/*
+ *   PGN 129283: NAV Cross Track Error
+ */
+static gps_mask_t hnd_129283(struct gps_device_t *session UNUSED)
+{
+    return 0;
+}
+
+
+/*
+ *   PGN 129284: NAV Navigation Data
+ */
+static gps_mask_t hnd_129284(struct gps_device_t *session UNUSED)
+{
+    return 0;
+}
+
+
+/*
+ *   PGN 129285: NAV Navigation - Route/WP Information
+ */
+static gps_mask_t hnd_129285(struct gps_device_t *session UNUSED)
+{
+    return 0;
+}
+
+
+/*
+ *   PGN 129025: GNSS Position Rapid Update
+ */
+static gps_mask_t hnd_129025(struct gps_device_t *session)
+{
+    unsigned char *bu = session->lexer.outbuffer;
+
+    session->newdata.latitude = getles32(bu, 0) * 1e-7;
+    session->newdata.longitude = getles32(bu, 4) * 1e-7;
+
+    return LATLON_SET | get_mode(session);
+}
+
+
+static const struct vlist_t cog_refs[] = {
+    {0, "True"},
+    {1, "Magnetic"},
+    {2, "Error"},
+    {0, NULL},
+};
+
+/*
+ *   PGN 129026: GNSS COG and SOG Rapid Update
+ */
+static gps_mask_t hnd_129026(struct gps_device_t *session)
+{
+    unsigned char *bu = session->lexer.outbuffer;
+
+    unsigned cog_ref = (bu[1] >> 6) & 0x03;
+    session->driver.nmea2000.sid[0] = bu[0];
+
+    session->newdata.track = getleu16(bu, 2) * 1e-4 * RAD_2_DEG;
+    session->newdata.speed = getleu16(bu, 4) * 1e-2;
+
+    GPSD_LOG(LOG_PROG, &session->context->errout,
+             "NMEA2000: pgn 129026 sid %u ref %u (%s) COG %.3f SOG %.3f\n",
+             session->driver.nmea2000.sid[0], cog_ref,
+             val2str(cog_ref, cog_refs),
+             session->newdata.track, session->newdata.speed);
+    return SPEED_SET | TRACK_SET | get_mode(session);
 }
 
 
@@ -1129,6 +1194,107 @@ static gps_mask_t hnd_129040(struct gps_device_t *session)
         return ONLINE_SET | AIS_SET;
     }
     return 0;
+}
+
+
+static const int mode_tab[] = {MODE_NO_FIX, MODE_2D, MODE_3D, MODE_NO_FIX,
+                               MODE_NO_FIX, MODE_NO_FIX, MODE_NO_FIX,
+                               MODE_NO_FIX};
+
+/*
+ *   PGN 129539: GNSS DOPs
+ */
+static gps_mask_t hnd_129539(struct gps_device_t *session)
+{
+    unsigned char *bu = session->lexer.outbuffer;
+    gps_mask_t mask = 0;
+    unsigned int req_mode;
+    unsigned int act_mode;
+
+    session->driver.nmea2000.sid[1]  = bu[0];
+
+    session->driver.nmea2000.mode_valid |= 1;
+
+    req_mode = (unsigned int)((bu[1] >> 0) & 0x07);
+    act_mode = (unsigned int)((bu[1] >> 3) & 0x07);
+
+    /* This is a workaround for some GARMIN plotter,
+     * actual mode auto makes no sense for me! */
+    if ((3 == act_mode) &&
+        (3 != req_mode)) {
+        act_mode = req_mode;
+    }
+
+    session->driver.nmea2000.mode    = mode_tab[act_mode];
+
+    session->gpsdata.dop.hdop        = getleu16(bu, 2) * 1e-2;
+    session->gpsdata.dop.vdop        = getleu16(bu, 4) * 1e-2;
+    session->gpsdata.dop.tdop        = getleu16(bu, 6) * 1e-2;
+    mask                            |= DOP_SET;
+
+    GPSD_LOG(LOG_DATA, &session->context->errout,
+             "NMEA2000: pgn 129539 SA %u sid:%02x hdop:%5.2f "
+             "vdop:%5.2f tdop:%5.2f\n",
+             session->driver.nmea2000.source_addr,
+             session->driver.nmea2000.sid[1],
+             session->gpsdata.dop.hdop,
+             session->gpsdata.dop.vdop,
+             session->gpsdata.dop.tdop);
+
+    return mask | get_mode(session);
+}
+
+
+/*
+ *   PGN 129540: GNSS Satellites in View
+ */
+static gps_mask_t hnd_129540(struct gps_device_t *session)
+{
+    unsigned char *bu = session->lexer.outbuffer;
+    size_t len  = session->lexer.outbuflen;
+    int    l1;
+    size_t expected_len;
+
+    session->driver.nmea2000.sid[2]           = bu[0];
+    session->gpsdata.satellites_visible       = (int)bu[2];
+    if (MAXCHANNELS <= session->gpsdata.satellites_visible) {
+        // Handle a CVE for overrunning skyview[]
+        GPSD_LOG(LOG_WARN, &session->context->errout,
+                 "NMEA2000: pgn 129540 SA %u Too many sats %d\n",
+                 session->driver.nmea2000.source_addr,
+                 session->gpsdata.satellites_visible);
+        session->gpsdata.satellites_visible = MAXCHANNELS;
+    }
+    expected_len = 3 + (12 * session->gpsdata.satellites_visible);
+    if (len != expected_len) {
+        GPSD_LOG(LOG_WARN, &session->context->errout,
+                 "NMEA2000: pgn 129540 SA %u wrong length %zu s/b %zu\n",
+                 session->driver.nmea2000.source_addr,
+                 len, expected_len);
+        return 0;
+    }
+
+    memset(session->gpsdata.skyview, '\0', sizeof(session->gpsdata.skyview));
+    for (l1 = 0; l1 < session->gpsdata.satellites_visible; l1++) {
+        int offset = 3 + (12 * l1);
+        double elev  = getles16(bu, offset + 1) * 1e-4 * RAD_2_DEG;
+        double azi   = getleu16(bu, offset + 3) * 1e-4 * RAD_2_DEG;
+        double snr   = getles16(bu, offset + 5) * 1e-2;
+
+        int svt   = (int)(bu[offset + 11] & 0x0f);
+
+        session->gpsdata.skyview[l1].elevation  = elev;
+        session->gpsdata.skyview[l1].azimuth    = azi;
+        session->gpsdata.skyview[l1].ss         = snr;
+        session->gpsdata.skyview[l1].PRN        = (int16_t)bu[offset];
+        session->gpsdata.skyview[l1].used = false;
+        if ((2 == svt) ||
+            (5 == svt)) {
+            session->gpsdata.skyview[l1].used = true;
+        }
+    }
+    session->driver.nmea2000.mode_valid |= 2;
+    return SATELLITE_SET | USED_IS;
 }
 
 
@@ -1507,147 +1673,6 @@ static gps_mask_t hnd_129810(struct gps_device_t *session)
         ais->type24.part = part_b;
         return ONLINE_SET | AIS_SET;
     }
-    return 0;
-}
-
-
-/*
- *   PGN 127506: PWR DC Detailed Status
- */
-static gps_mask_t hnd_127506(struct gps_device_t *session)
-{
-    unsigned char *bu = session->lexer.outbuffer;
-
-    unsigned sid = bu[0];
-    unsigned instance = bu[1];
-    unsigned dc_type = bu[2];
-    unsigned charge = bu[3];
-    unsigned health = bu[4];
-    unsigned timer = getles16(bu, 5);
-    unsigned ripple = getles16(bu, 7);
-    unsigned cap = getles16(bu, 9);
-
-    GPSD_LOG(LOG_PROG, &session->context->errout,
-             "NMEA2000: pgn 127506 sid %u instance %u DC type %u charge %u "
-             "health %u time %u ripple %u cap %u\n",
-             sid, instance, dc_type, charge, health,
-             timer, ripple, cap);
-    return 0;
-}
-
-
-/*
- *   PGN 127508: PWR Battery Status
- */
-static gps_mask_t hnd_127508(struct gps_device_t *session UNUSED)
-{
-    return 0;
-}
-
-
-/*
- *   PGN 127513: PWR Battery Configuration Status
- */
-static gps_mask_t hnd_127513(struct gps_device_t *session UNUSED)
-{
-    return 0;
-}
-
-
-/*
- *   PGN 127245: NAV Rudder
- */
-static gps_mask_t hnd_127245(struct gps_device_t *session UNUSED)
-{
-    return 0;
-}
-
-
-/*
- *   PGN 127250: NAV Vessel Heading
- */
-static gps_mask_t hnd_127250(struct gps_device_t *session UNUSED)
-{
-    unsigned char *bu = session->lexer.outbuffer;
-    int aux;
-
-    session->gpsdata.attitude.heading = getleu16(bu, 1) * RAD_2_DEG * 0.0001;
-//  printf("ATT 0:%8.3f\n",session->gpsdata.attitude.heading);
-    aux = getles16(bu, 3);
-    if (0x07fff != aux) {
-        session->gpsdata.attitude.heading += aux * RAD_2_DEG * 0.0001;
-    }
-//  printf("ATT 1:%8.3f %6x\n",session->gpsdata.attitude.heading, aux);
-    aux = getles16(bu, 5);
-    if (0x07fff != aux) {
-        session->gpsdata.attitude.heading += aux * RAD_2_DEG * 0.0001;
-    }
-//  printf("ATT 2:%8.3f %6x\n",session->gpsdata.attitude.heading, aux);
-
-    return ONLINE_SET | ATTITUDE_SET;
-}
-
-
-/*
- *   PGN 128259: NAV Speed
- */
-static gps_mask_t hnd_128259(struct gps_device_t *session UNUSED)
-{
-    return 0;
-}
-
-
-/*
- *   PGN 128267: NAV Water Depth
- */
-static gps_mask_t hnd_128267(struct gps_device_t *session)
-{
-    unsigned char *bu = session->lexer.outbuffer;
-
-    unsigned sid = bu[0];
-    double offset= getleu16(bu, 5) / 1000.0;
-    unsigned range = bu[9];
-    session->gpsdata.attitude.depth = getleu32(bu, 1) / 100.0 ;
-
-    GPSD_LOG(LOG_PROG, &session->context->errout,
-             "NMEA2000: pgn 128267 sid %u depth %.2f offset %.3f range %u\n",
-             sid, session->gpsdata.attitude.depth, offset, range);
-    return ONLINE_SET | ATTITUDE_SET;
-}
-
-
-/*
- *   PGN 128275: NAV Distance Log
- */
-static gps_mask_t hnd_128275(struct gps_device_t *session UNUSED)
-{
-    return 0;
-}
-
-
-/*
- *   PGN 129283: NAV Cross Track Error
- */
-static gps_mask_t hnd_129283(struct gps_device_t *session UNUSED)
-{
-    return 0;
-}
-
-
-/*
- *   PGN 129284: NAV Navigation Data
- */
-static gps_mask_t hnd_129284(struct gps_device_t *session UNUSED)
-{
-    return 0;
-}
-
-
-/*
- *   PGN 129285: NAV Navigation - Route/WP Information
- */
-static gps_mask_t hnd_129285(struct gps_device_t *session UNUSED)
-{
     return 0;
 }
 
