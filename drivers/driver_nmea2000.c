@@ -1246,6 +1246,14 @@ static const int mode_tab[] = {MODE_NO_FIX, MODE_2D, MODE_3D, MODE_NO_FIX,
                                MODE_NO_FIX, MODE_NO_FIX, MODE_NO_FIX,
                                MODE_NO_FIX};
 
+static const struct vlist_t gnss_modes[] = {
+    {0, "1D"},
+    {1, "2D"},
+    {2, "3D"},
+    {3, "Auto"},
+    {0, NULL},
+};
+
 /*
  *   PGN 129539: GNSS DOPs
  */
@@ -1277,11 +1285,13 @@ static gps_mask_t hnd_129539(struct gps_device_t *session)
     session->gpsdata.dop.tdop        = getleu16(bu, 6) * 1e-2;
     mask                            |= DOP_SET;
 
-    GPSD_LOG(LOG_DATA, &session->context->errout,
-             "NMEA2000: pgn 129539 SA %u sid %u hdop %5.2f "
-             "vdop %5.2f tdop %5.2f\n",
+    GPSD_LOG(LOG_PROG, &session->context->errout,
+             "NMEA2000: pgn 129539 SA %u sid %u req %u(%s) act %u(%s) "
+             "hdop %5.2f vdop %5.2f tdop %5.2f\n",
              session->driver.nmea2000.source_addr,
              session->driver.nmea2000.sid[1],
+             req_mode, val2str(req_mode, gnss_modes),
+             act_mode, val2str(act_mode, gnss_modes),
              session->gpsdata.dop.hdop,
              session->gpsdata.dop.vdop,
              session->gpsdata.dop.tdop);
@@ -1289,6 +1299,21 @@ static gps_mask_t hnd_129539(struct gps_device_t *session)
     return mask | get_mode(session);
 }
 
+static const struct vlist_t range_modes[] = {
+    {0, "Range residuals used"},
+    {1, "Range residuals calculated"},
+    {0, NULL}
+};
+
+static const struct vlist_t svts[] = {
+    {0, "Not tracked"},
+    {1, "Tracked"},
+    {2, "Used"},
+    {3, "Not tracked+Diff"},
+    {4, "Tracked+Diff"},
+    {5, "Used+Diff"},
+    {0, NULL}
+};
 
 /*
  *   PGN 129540: GNSS Satellites in View
@@ -1299,6 +1324,7 @@ static gps_mask_t hnd_129540(struct gps_device_t *session)
     size_t len  = session->lexer.outbuflen;
     int    l1;
     size_t expected_len;
+    unsigned range_mode = bu[1] & 0x03;
 
     session->driver.nmea2000.sid[2]           = bu[0];
     session->gpsdata.satellites_visible       = (int)bu[2];
@@ -1326,7 +1352,7 @@ static gps_mask_t hnd_129540(struct gps_device_t *session)
         double azi   = getleu16(bu, offset + 3) * 1e-4 * RAD_2_DEG;
         double snr   = getles16(bu, offset + 5) * 1e-2;
 
-        int svt   = (int)(bu[offset + 11] & 0x0f);
+        unsigned svt = bu[offset + 11] & 0x0f;
 
         session->gpsdata.skyview[l1].elevation  = elev;
         session->gpsdata.skyview[l1].azimuth    = azi;
@@ -1337,8 +1363,18 @@ static gps_mask_t hnd_129540(struct gps_device_t *session)
             (5 == svt)) {
             session->gpsdata.skyview[l1].used = true;
         }
+        GPSD_LOG(LOG_IO, &session->context->errout,
+                 "NMEA2000: pgn 129540 PRN %d svt %u(%s)\n",
+                 session->gpsdata.skyview[l1].PRN,
+                 svt, val2str(svt, svts));
     }
     session->driver.nmea2000.mode_valid |= 2;
+    GPSD_LOG(LOG_PROG, &session->context->errout,
+             "NMEA2000: pgn 129540 SA %u sid %u mode %u(%s) seen %u\n",
+             session->driver.nmea2000.source_addr,
+             session->driver.nmea2000.sid[2],
+             range_mode, val2str(range_mode, range_modes),
+             session->gpsdata.satellites_visible);
     return SATELLITE_SET | USED_IS;
 }
 
