@@ -774,7 +774,7 @@ static gps_mask_t hnd_128267(struct gps_device_t *session)
 
     unsigned sid = bu[0];
     double offset= getleu16(bu, 5) / 1000.0;
-    unsigned range = bu[9];
+    unsigned range = bu[7];
     session->gpsdata.attitude.depth = getleu32(bu, 1) / 100.0 ;
 
     GPSD_LOG(LOG_PROG, &session->context->errout,
@@ -830,6 +830,10 @@ static gps_mask_t hnd_129025(struct gps_device_t *session)
     session->newdata.latitude = getles32(bu, 0) * 1e-7;
     session->newdata.longitude = getles32(bu, 4) * 1e-7;
 
+    GPSD_LOG(LOG_PROG, &session->context->errout,
+             "NMEA2000: pgn 129025 lat %.4f lon %.4f\n",
+             session->newdata.latitude,
+             session->newdata.longitude);
     return LATLON_SET | get_mode(session);
 }
 
@@ -848,7 +852,7 @@ static gps_mask_t hnd_129026(struct gps_device_t *session)
 {
     unsigned char *bu = session->lexer.outbuffer;
 
-    unsigned cog_ref = (bu[1] >> 6) & 0x03;
+    unsigned cog_ref = bu[1] & 0x03;
     session->driver.nmea2000.sid[0] = bu[0];
 
     session->newdata.track = getleu16(bu, 2) * 1e-4 * RAD_2_DEG;
@@ -862,6 +866,39 @@ static gps_mask_t hnd_129026(struct gps_device_t *session)
     return SPEED_SET | TRACK_SET | get_mode(session);
 }
 
+static const struct vlist_t integritys[] = {
+    {0, "No integrity checking"},
+    {1, "Safe"},
+    {2, "Caution"},
+    {3, "Unsafe"},
+    {0, NULL}
+};
+
+static const struct vlist_t gns_methods[] = {
+    {0, "no GNSS"},
+    {1, "GNSS fix"},
+    {2, "DGNSS fix"},
+    {3, "Precise GNSS"},
+    {4, "RTK Fixed Integer"},
+    {5, "RTK float"},
+    {6, "Estimated (DR) mode"},
+    {7, "Manual Input"},
+    {8, "Simulate mode"},
+    {0, NULL}
+};
+
+static const struct vlist_t gnss_types[] = {
+    {0, "GPS"},
+    {1, "GLONASS"},
+    {2, "GPS+GLONASS"},
+    {3, "GPS+SBAS/WAAS"},
+    {4, "GPS+SBAS/WAAS+GLONASS"},
+    {5, "Chayka"},
+    {6, "integrated"},
+    {7, "surveyed"},
+    {8, "Galileo"},
+    {0, NULL}
+};
 
 /*
  * PGN: 129029 / 00374005 / 1F805 - 51 - GNSS Position Data
@@ -984,13 +1021,15 @@ static gps_mask_t hnd_129029(struct gps_device_t *session)
 {
     unsigned char *bu = session->lexer.outbuffer;
     gps_mask_t mask = 0;
-    uint64_t usecs;                           // time in us
-    unsigned method = (bu[31] >> 4) & 0x0f;
+    uint64_t usecs;                           // time of day in us
+    unsigned gns_method = (bu[31] >> 4) & 0x0f;
     unsigned gnss_type = bu[31] & 0x0f;
+    unsigned integrity = bu[32] & 0x03;
+    unsigned refs = bu[40];
 
     session->driver.nmea2000.sid[3]  = bu[0];
 
-    // field 3 is time in 0.1 ms
+    // field 3 is time of day in 0.1 ms
     usecs = getleu32(bu, 3) * (uint64_t)100;
     USTOTS(&session->newdata.time, usecs);
     // add in the date from field 2
@@ -1004,7 +1043,7 @@ static gps_mask_t hnd_129029(struct gps_device_t *session)
     session->newdata.altHAE = getles64(bu, 23) * 1e-6;
     mask |= ALTITUDE_SET;
 
-    switch (method) {
+    switch (gns_method) {
     case 0:
         session->newdata.status = STATUS_UNK;
         break;
@@ -1046,17 +1085,23 @@ static gps_mask_t hnd_129029(struct gps_device_t *session)
     session->gpsdata.dop.pdop = getleu16(bu, 36) * 1e-2;
     mask |= DOP_SET;
 
+    session->newdata.geoid_sep = getles32(bu, 38) / 100;
+
     GPSD_LOG(LOG_PROG, &session->context->errout,
-             "NMEA2000: pgn 129029 SA %u sid:%02x lat %.2f lon %.2f HAE %.2f "
-             "type %u method %u hdop:%5.2f pdop:%5.2f\n",
+             "NMEA2000: pgn 129029 SA %u sid %u lat %.2f lon %.2f HAE %.2f "
+             "type %u(%s) method %u(%s) integrity %u(%s) "
+             "hdop:%5.2f pdop:%5.2f sep %.2f refs %u\n",
              session->driver.nmea2000.source_addr,
              session->driver.nmea2000.sid[3],
              session->newdata.latitude,
              session->newdata.longitude,
              session->newdata.altHAE,
-             gnss_type, method,
+             gnss_type, val2str(gnss_type, gnss_types),
+             gns_method, val2str(gns_method, gns_methods),
+             integrity, val2str(integrity, integritys),
              session->gpsdata.dop.hdop,
-             session->gpsdata.dop.pdop);
+             session->gpsdata.dop.pdop,
+             session->newdata.geoid_sep, refs);
     return mask | get_mode(session);
 }
 
@@ -1233,8 +1278,8 @@ static gps_mask_t hnd_129539(struct gps_device_t *session)
     mask                            |= DOP_SET;
 
     GPSD_LOG(LOG_DATA, &session->context->errout,
-             "NMEA2000: pgn 129539 SA %u sid:%02x hdop:%5.2f "
-             "vdop:%5.2f tdop:%5.2f\n",
+             "NMEA2000: pgn 129539 SA %u sid %u hdop %5.2f "
+             "vdop %5.2f tdop %5.2f\n",
              session->driver.nmea2000.source_addr,
              session->driver.nmea2000.sid[1],
              session->gpsdata.dop.hdop,
