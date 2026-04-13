@@ -1785,9 +1785,44 @@ static gps_mask_t hnd_130311(struct gps_device_t *session UNUSED)
 }
 
 
-// keep list sorted!
-static const PGN pgnlst[] = {{ 59392, 0, 0, hnd_059392, "ISO Acknowledgment"},
+/* keep list sorted!
+ * Thanks to: https://www.isobus.net/isobus/pGNAndSPN/index
+ */
+static const PGN pgnlst[] = {
+                             { 51968, 0, 0, NULL, "Process Data Message"},
+                             { 58880, 0, 0, NULL, "Virtual Terminal-to-Node"},
+                             { 59136, 0, 0, NULL, "Node-to-Virtual Terminal"},
+                             { 59392, 0, 0, hnd_059392, "ISO Acknowledgment"},
+                             { 59904, 0, 0, NULL, "Request"},
+                             { 60160, 0, 0, NULL,
+                               "Transport Protocol - Data Transfer"},
+                             { 60416, 0, 0, NULL,
+                               "Transport Protocol - Connection Mgmt"},
+                             { 60928, 0, 0, NULL, "Address Claimed"},
+                             { 61444, 0, 0, NULL,
+                               "Electronic Engine Controller 1"},
+                             { 65037, 0, 0, NULL, "Working Set Master "},
+                             { 65039, 0, 0, NULL, "Language command"},
+                             { 65040, 0, 0, NULL,
+                              "Auxiliary valve 0 estimated flow"},
+                             { 65041, 0, 0, NULL,
+                              "Auxiliary valve 1 estimated flow"},
+                             { 65042, 0, 0, NULL,
+                              "Auxiliary valve 2 estimated flow"},
+                             { 65043, 0, 0, NULL,
+                              "Auxiliary valve 3 estimated flow"},
+                             { 65089, 0, 0, NULL, "Lighting command"},
+                             { 65093, 0, 0, NULL,
+                              "Primary or Rear Hitch Status"},
+                             { 65094, 0, 0, NULL,
+                              "Secondary or Front Hitch Status"},
+                             { 65096, 0, 0, NULL,
+                              "Wheel-based Speed and Distance"},
+                             { 65097, 0, 0, NULL,
+                              "Ground-based Speed and Distance"},
                              { 60928, 0, 0, hnd_060928, "ISO Address Claim"},
+                             { 65226, 0, 0, NULL,
+                              "Active Diagnostic Trouble Codes"},
                              {126208, 0, 0, hnd_126208,
                               "NMEA Command/Request/Acknowledge"},
                              {126464, 1, 0, hnd_126464,
@@ -1965,8 +2000,8 @@ static void find_pgn(struct can_frame *frame, struct gps_device_t *session)
 
         if (NULL == work) {
             GPSD_LOG(LOG_WARN, &session->context->errout,
-                     "NMEA2000: PGN not found %08d %08x \n",
-                     source_pgn, source_pgn);
+                     "NMEA2000: pgn %u SA %u pgn not found\n",
+                     source_pgn, source_addr);
         } else if (0 == work->fast) {
             // not FAST, one packet is one complete message
 
@@ -2114,7 +2149,9 @@ static gps_mask_t nmea2000_parse_input(struct gps_device_t *session)
 
     if (NULL != work) {
         print_data(session);
-        mask = (work->func)(session);
+        if (NULL != work->func) {
+            mask = (work->func)(session);
+        } // else, no decode available.
         session->driver.nmea2000.workpgn = NULL;
     }
     session->lexer.outbuflen = 0;
