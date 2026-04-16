@@ -4744,7 +4744,7 @@ static gps_mask_t ubx_msg_rxm_sfrbx(struct gps_device_t *session,
                                     unsigned char *buf, size_t data_len)
 {
     unsigned i;
-    uint32_t words[17];
+    uint32_t words[33];
     char *chn_s;
 
     unsigned gnssId = getub(buf, 0);
@@ -4779,7 +4779,7 @@ static gps_mask_t ubx_msg_rxm_sfrbx(struct gps_device_t *session,
         return 0;
     }
     if (data_len != (size_t)(8 + (4 * numWords)) ||
-        16 < numWords) {
+        ROWS(words) < numWords) {
         // test numwords directly to shut up Coverity
         GPSD_LOG(LOG_WARN, &session->context->errout,
                  "UBX: RXM-SFRBX: wrong payload len %zd, numwords %u "
