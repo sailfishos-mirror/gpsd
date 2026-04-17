@@ -962,14 +962,14 @@ static gps_mask_t almanac_bds(uint32_t words[], struct subframe_t *subp)
 /* Code to decode BeiDou Subframes sigId 6
  */
 static gps_mask_t subframe_bds6(struct gps_device_t *session,
-                               unsigned int sigId,
+                               unsigned int sigId UNUSED,
                                unsigned int tSVID UNUSED,
                                uint32_t words[] UNUSED,
-                               unsigned int numwords UNUSED)
+                               unsigned int numwords)
 {
     gps_mask_t mask = 0;
 
-    switch (sigId) {
+    switch (numwords) {
     case 3:
         // Subframe 1, 72 bits raw, 14 bits encoded
         // unclear what u-blox did to get 3 32-bit words.
