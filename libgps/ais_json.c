@@ -153,6 +153,8 @@ int json_ais_read(const char *buf,
             else if (strstr(buf, "\"fid\":18,") != NULL) {
                 status = json_read_object(buf, json_ais6_fid18, endptr);
                 if (status == 0) {
+                    // no need to set zeros, again.
+                    // ais->type6.dac1fid18.month = AIS_MONTH_NOT_AVAILABLE;
                     ais->type6.dac1fid18.day = AIS_DAY_NOT_AVAILABLE;
                     ais->type6.dac1fid18.hour = AIS_HOUR_NOT_AVAILABLE;
                     ais->type6.dac1fid18.minute = AIS_MINUTE_NOT_AVAILABLE;
@@ -321,28 +323,32 @@ int json_ais_read(const char *buf,
             }
             else if (strstr(buf, "\"fid\":23,") != NULL) {
                 status = json_read_object(buf, json_ais8_fid23, endptr);
-                ais->type8.dac200fid23.start_year = AIS_YEAR_NOT_AVAILABLE;
-                ais->type8.dac200fid23.start_month = AIS_MONTH_NOT_AVAILABLE;
-                ais->type8.dac200fid23.start_day = AIS_DAY_NOT_AVAILABLE;
-                ais->type8.dac200fid23.start_hour = AIS_HOUR_NOT_AVAILABLE;
-                ais->type8.dac200fid23.start_minute = AIS_MINUTE_NOT_AVAILABLE;
-                ais->type8.dac200fid23.end_year = AIS_YEAR_NOT_AVAILABLE;
-                ais->type8.dac200fid23.end_month = AIS_MONTH_NOT_AVAILABLE;
-                ais->type8.dac200fid23.end_day = AIS_DAY_NOT_AVAILABLE;
-                ais->type8.dac200fid23.end_hour = AIS_HOUR_NOT_AVAILABLE;
-                ais->type8.dac200fid23.end_minute = AIS_MINUTE_NOT_AVAILABLE;
-                (void)sscanf(start, "%09u-%02u-%02uT%02u:%02u",
-                         &ais->type8.dac200fid23.start_year,
-                         &ais->type8.dac200fid23.start_month,
-                         &ais->type8.dac200fid23.start_day,
-                         &ais->type8.dac200fid23.start_hour,
-                         &ais->type8.dac200fid23.start_minute);
-                (void)sscanf(end, "%09u-%02u-%02uT%02u:%02u",
-                         &ais->type8.dac200fid23.end_year,
-                         &ais->type8.dac200fid23.end_month,
-                         &ais->type8.dac200fid23.end_day,
-                         &ais->type8.dac200fid23.end_hour,
-                         &ais->type8.dac200fid23.end_minute);
+                if (status == 0) {
+                    ais->type8.dac200fid23.start_year = AIS_YEAR_NOT_AVAILABLE;
+                    // no need to set zeros, again.
+                    /* ais->type8.dac200fid23.start_month =
+                     *    AIS_MONTH_NOT_AVAILABLE; */
+                    ais->type8.dac200fid23.start_day = AIS_DAY_NOT_AVAILABLE;
+                    ais->type8.dac200fid23.start_hour = AIS_HOUR_NOT_AVAILABLE;
+                    ais->type8.dac200fid23.start_minute = AIS_MINUTE_NOT_AVAILABLE;
+                    ais->type8.dac200fid23.end_year = AIS_YEAR_NOT_AVAILABLE;
+                    ais->type8.dac200fid23.end_month = AIS_MONTH_NOT_AVAILABLE;
+                    ais->type8.dac200fid23.end_day = AIS_DAY_NOT_AVAILABLE;
+                    ais->type8.dac200fid23.end_hour = AIS_HOUR_NOT_AVAILABLE;
+                    ais->type8.dac200fid23.end_minute = AIS_MINUTE_NOT_AVAILABLE;
+                    (void)sscanf(start, "%09u-%02u-%02uT%02u:%02u",
+                             &ais->type8.dac200fid23.start_year,
+                             &ais->type8.dac200fid23.start_month,
+                             &ais->type8.dac200fid23.start_day,
+                             &ais->type8.dac200fid23.start_hour,
+                             &ais->type8.dac200fid23.start_minute);
+                    (void)sscanf(end, "%09u-%02u-%02uT%02u:%02u",
+                             &ais->type8.dac200fid23.end_year,
+                             &ais->type8.dac200fid23.end_month,
+                             &ais->type8.dac200fid23.end_day,
+                             &ais->type8.dac200fid23.end_hour,
+                             &ais->type8.dac200fid23.end_minute);
+                }
                 structured = true;
             }
             else if (strstr(buf, "\"fid\":24,") != NULL) {
