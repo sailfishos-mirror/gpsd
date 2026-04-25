@@ -838,7 +838,6 @@ bool ais_binary_decode(const struct gpsd_errout_t *errout,
         //ais->type14.spare         = UBITS(38, 2);
         ais->type15.mmsi1           = UBITS(40, 30);
         ais->type15.type1_1         = UBITS(70, 6);
-        ais->type15.type1_1         = UBITS(70, 6);
         ais->type15.offset1_1       = UBITS(76, 12);
         //ais->type14.spare2        = UBITS(88, 2);
         if (90 < bitlen) {
@@ -1148,7 +1147,7 @@ bool ais_binary_decode(const struct gpsd_errout_t *errout,
              * sending a full 168-bit slot rather than just 96 bits.
              */
             GPSD_LOG(LOG_WARN, errout,
-                     "oversized 169=8-bit AIVDM message type 27.\n");
+                     "oversized 168-bit AIVDM message type 27.\n");
         }
         ais->type27.accuracy    = (bool)UBITS(38, 1);
         ais->type27.raim        = UBITS(39, 1) != 0;
