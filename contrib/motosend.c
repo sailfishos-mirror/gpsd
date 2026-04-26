@@ -225,7 +225,7 @@ int main(int argc, char **argv)
         nanosleep(&delay, NULL);
 
         memset(buf, 0, sizeof(buf));
-        if (-1 = (l = read(fd, buf, sizeof(buf)))) {
+        if (-1 == (l = read(fd, buf, sizeof(buf)))) {
             if (!(EINTR == errno ||
                   EAGAIN == errno)) {
                 err(1, "read");
