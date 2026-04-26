@@ -406,7 +406,7 @@ static void get_one(gps_mask_t need)
 
         status = gps_read(&gpsdata, NULL, 0);
         if (-1 == status) {
-            (void)fprintf(logfd, PROGNAME "gpssnmp: ERROR: read failed %d\n",
+            (void)fprintf(logfd, PROGNAME ": ERROR: read failed %d\n",
                           status);
             exit(1);
         }
