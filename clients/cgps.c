@@ -869,7 +869,7 @@ static void update_gps_panel(struct gps_data_t *gpsdata, char *message,
         if (GPSD_API_MAJOR_VERSION != gpsdata->version.proto_major ||
             GPSD_API_MINOR_VERSION != gpsdata->version.proto_minor) {
             (void)fprintf(stderr,
-                           "cgps: WARNING: API %d.%u expected %d.%d\n\r",
+                           "cgps: WARNING: API %d.%d expected %d.%d\n\r",
                           gpsdata->version.proto_major,
                           gpsdata->version.proto_minor,
                           GPSD_API_MAJOR_VERSION,
