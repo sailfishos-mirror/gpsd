@@ -120,7 +120,11 @@ int main( int argc, char **argv){
 	printf("configured %s for %dbps - write delay %dus\n", tn, speed, sleeptime);
 
 	for(len = 0; len < sb.st_size; len += WRLEN ){
-		write(ofd, buf+len, WRLEN );
+		size_t write_len = WRLEN;
+		if (sb.st_size - len < WRLEN) {
+			write_len = (size_t)(sb.st_size - len);
+		}
+		write(ofd, buf+len, write_len);
 	//	tcdrain(ofd);
 		if (0 == dflag) {
 			tcflush(ofd, TCIFLUSH);
@@ -128,7 +132,7 @@ int main( int argc, char **argv){
 			tcflush(sfd, TCIFLUSH);
 		}
 		spinner( len );
-		/* wait sleeptime Sec
+		/* wait sleeptime seconds */
 		delay.tv_sec = (time_t)(sleeptime / 1000000000L);
 		delay.tv_nsec = sleeptime % 1000000000L;
 		nanosleep(&delay, NULL);
