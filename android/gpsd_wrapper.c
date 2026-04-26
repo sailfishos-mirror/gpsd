@@ -12,6 +12,7 @@
 int main (){
 	char gpsd_params[PROP_VALUE_MAX];
 	char cmd[1024];
+	int cmd_len;
 	int i = 0;
 
 	property_get("service.gpsd.parameters", gpsd_params,
@@ -23,9 +24,14 @@ int main (){
                 }
 		i++;
 	}
-
-        // FIXME: use snprintf() to prevent overflow of cmd
-	sprintf(cmd, "/vendor/bin/logwrapper /vendor/bin/gpsd %s", gpsd_params);
+	cmd_len = snprintf(cmd, sizeof(cmd),
+                          "/vendor/bin/logwrapper /vendor/bin/gpsd %s",
+                          gpsd_params);
+	if (0 > cmd_len || sizeof(cmd) <= (size_t)cmd_len) {
+		__android_log_print(ANDROID_LOG_ERROR, "gpsd_wrapper",
+                                    "gpsd command line is too long");
+		return 1;
+	}
 
 	__android_log_print(ANDROID_LOG_DEBUG, "gpsd_wrapper",
                             "Starting gpsd: %s", cmd);
