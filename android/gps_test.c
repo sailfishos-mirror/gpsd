@@ -43,7 +43,8 @@ int main (int argc, char **argv) {
         if (gps_waiting (&gps_data, 2000000)) {
             errno = 0;
             if (0 <= gps_read (&gps_data, NULL, 0)) {
-                if (gps_data.status >= 1 && gps_data.fix.mode >= 2){
+                if (gps_data.fix.status >= STATUS_GPS &&
+                    gps_data.fix.mode >= MODE_2D) {
                     printf("\nHave a fix: ");
                     if (gps_data.fix.mode == 2)
                         printf("2D\n");
@@ -57,18 +58,24 @@ int main (int argc, char **argv) {
                     printf("H Accuracy: %f\n", gps_data.fix.eph);
                     printf("S Accuracy: %f\n", gps_data.fix.eps);
                     printf("B Accuracy: %f\n", gps_data.fix.epd);
-                    printf("Time: %ld\n", (long) gps_data.fix.time);
-                    printf("Altitude: %f\n", gps_data.fix.altitude);
+                    printf("Time: %ld.%09ld\n",
+                           (long)gps_data.fix.time.tv_sec,
+                           (long)gps_data.fix.time.tv_nsec);
+                    printf("Altitude HAE: %f\n", gps_data.fix.altHAE);
                     printf("V Accuracy: %f\n\n", gps_data.fix.epv);
                 }
 
-                printf("Satellites visible: %d\n",
-                       gps_data.satellites_visible);
-                if (MAXCHANNELS < session->gpsdata.satellites_visible ) {
-                    session->gpsdata.satellites_visible = MAXCHANNELS;
+                int satellites_visible = gps_data.satellites_visible;
+                if (MAXCHANNELS < satellites_visible) {
+                    satellites_visible = MAXCHANNELS;
+                } else if (0 > satellites_visible) {
+                    satellites_visible = 0;
                 }
 
-                for (int i = 0; i < gps_data.satellites_visible; i++) {
+                printf("Satellites visible: %d\n",
+                       satellites_visible);
+
+                for (int i = 0; i < satellites_visible; i++) {
                     printf("SV type: ");
                     switch (gps_data.skyview[i].gnssid) {
                     case 0:
@@ -94,13 +101,13 @@ int main (int argc, char **argv) {
                             break;
                     }
 
-                    printf("SVID: %d, SNR: %d, Elevation: %d, "
-                           "Azimuth: %d, Used: %d\n",
-                            gps_data.skyview[i].svid,
-                            (int)gps_data.skyview[i].ss,
-                            gps_data.skyview[i].elevation,
-                            gps_data.skyview[i].azimuth,
-                            gps_data.skyview[i].used);
+                    printf("SVID: %d, SNR: %.0f, Elevation: %.0f, "
+                           "Azimuth: %.0f, Used: %d\n",
+                             gps_data.skyview[i].svid,
+                             gps_data.skyview[i].ss,
+                             gps_data.skyview[i].elevation,
+                             gps_data.skyview[i].azimuth,
+                             gps_data.skyview[i].used);
                 }
             }
         }
