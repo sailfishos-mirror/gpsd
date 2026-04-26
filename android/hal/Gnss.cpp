@@ -3,6 +3,8 @@
 #include <android/hardware/gnss/1.0/types.h>
 #include <log/log.h>
 #include <cutils/properties.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 
@@ -20,10 +22,16 @@ using GnssSvFlags = IGnssCallback::GnssSvFlags;
 const uint32_t MIN_INTERVAL_MILLIS = 100;
 sp<::android::hardware::gnss::V1_1::IGnssCallback> Gnss::sGnssCallback = nullptr;
 
-Gnss::Gnss() : mMinIntervalMs(1000), mGnssConfiguration{new GnssConfiguration()} {}
+Gnss::Gnss() :
+    mMinIntervalMs(1000),
+    mGnssConfiguration{new GnssConfiguration()},
+    mIsActive(false) {}
 
 Gnss::~Gnss() {
-    stop();
+    mIsActive = false;
+    if (mThread.joinable()) {
+        mThread.join();
+    }
 }
 
 // Methods from ::android::hardware::gnss::V1_0::IGnss follow.
@@ -48,9 +56,10 @@ Return<bool> Gnss::start() {
         int is_automotive;
         char gpslat[PROP_VALUE_MAX];
         char gpslon[PROP_VALUE_MAX];
-        long last_recorded_fix = 0;
+        time_t last_recorded_fix = 0;
         char dtos[100];
-        GnssLocation location;
+        GnssLocation location = {};
+        bool have_automotive_location = false;
 
         // Normally, GPSd will be running on localhost, but we can set a system property
         // "service.gpsd.host" to some other hostname in order to open a GPSd instance
@@ -73,8 +82,9 @@ Return<bool> Gnss::start() {
                      .horizontalAccuracyMeters = 0.0,
                      .speedAccuracyMetersPerSecond = 0.0,
                      .bearingAccuracyDegrees = 0.0,
-                     .timestamp = (long) time(NULL)
+                     .timestamp = (int64_t)time(NULL) * 1000
             };
+            have_automotive_location = true;
             this->reportLocation(location);
         }
 
@@ -102,14 +112,15 @@ Return<bool> Gnss::start() {
                 errno = 0;
                 if (gps_read (&gps_data, NULL, 0) != -1) {
 
-                    if (gps_data.status >= 1 && gps_data.fix.mode >= 2){
+                    if (gps_data.fix.status >= STATUS_GPS && gps_data.fix.mode >= 2){
 
                         // Every 30 seconds, store current coordinates to persist property.
-                        if (is_automotive && ((long) gps_data.fix.time) > last_recorded_fix + 30){
-                            last_recorded_fix = (long) gps_data.fix.time;
-                            sprintf(dtos, "%lf", gps_data.fix.latitude);
+                        if (is_automotive &&
+                            gps_data.fix.time.tv_sec > last_recorded_fix + 30){
+                            last_recorded_fix = gps_data.fix.time.tv_sec;
+                            snprintf(dtos, sizeof(dtos), "%lf", gps_data.fix.latitude);
                             property_set("persist.service.gpsd.latitude", dtos);
-                            sprintf(dtos, "%lf", gps_data.fix.longitude);
+                            snprintf(dtos, sizeof(dtos), "%lf", gps_data.fix.longitude);
                             property_set("persist.service.gpsd.longitude", dtos);
                         }
 
@@ -129,27 +140,36 @@ Return<bool> Gnss::start() {
                                  .horizontalAccuracyMeters = (float) gps_data.fix.eph,
                                  .speedAccuracyMetersPerSecond = (float) gps_data.fix.eps,
                                  .bearingAccuracyDegrees = (float) gps_data.fix.epd,
-                                 .timestamp = (long) gps_data.fix.time
+                                 .timestamp = (int64_t)gps_data.fix.time.tv_sec * 1000 +
+                                              gps_data.fix.time.tv_nsec / 1000000
                         };
 
                         if (gps_data.fix.mode == 3){
                             flags |= V1_0::GnssLocationFlags::HAS_ALTITUDE |
                                     V1_0::GnssLocationFlags::HAS_VERTICAL_ACCURACY;
 
-                            location.altitudeMeters = gps_data.fix.altitude;
+                            location.altitudeMeters = gps_data.fix.altHAE;
                             location.verticalAccuracyMeters = gps_data.fix.epv;
                         }
 
 			location.gnssLocationFlags = flags;
 
+                        have_automotive_location = true;
                         this->reportLocation(location);
-                    } else if (is_automotive && last_recorded_fix == 0){
-                        location.timestamp = (long) time(NULL);
+                    } else if (is_automotive && have_automotive_location && last_recorded_fix == 0){
+                        location.timestamp = (int64_t)time(NULL) * 1000;
                         this->reportLocation(location);
                     }
 
-                    GnssSvStatus svStatus = {.numSvs = (uint32_t) gps_data.satellites_visible};
-                    for (int i = 0; i < gps_data.satellites_visible; i++){
+                    GnssSvStatus svStatus = {};
+                    if (gps_data.satellites_visible > 0) {
+                        svStatus.numSvs = (uint32_t)gps_data.satellites_visible;
+                        const uint32_t maxSvs = (uint32_t)svStatus.gnssSvList.size();
+                        if (svStatus.numSvs > maxSvs) {
+                            svStatus.numSvs = maxSvs;
+                        }
+                    }
+                    for (uint32_t i = 0; i < svStatus.numSvs; i++){
                         GnssConstellationType constellation_type = GnssConstellationType::UNKNOWN;
                         switch (gps_data.skyview[i].gnssid){
                             case 0:
@@ -197,9 +217,11 @@ Return<bool> Gnss::start() {
             }
         }
 
-        // Close the GPS
-        gps_stream(&gps_data, WATCH_DISABLE, NULL);
-        gps_close (&gps_data);
+        // Close the GPS if it was successfully opened.
+        if (gpsopen == 0) {
+            gps_stream(&gps_data, WATCH_DISABLE, NULL);
+            gps_close (&gps_data);
+        }
     });
 
     return true;
