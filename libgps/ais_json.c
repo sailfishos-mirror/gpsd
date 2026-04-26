@@ -86,9 +86,10 @@ int json_ais_read(const char *buf,
                NULL != strstr(buf, "\"type\":11,")) {
         status = json_read_object(buf, json_ais4, endptr);
         if (0 == status) {
-            ais->type4.year = AIS_YEAR_NOT_AVAILABLE;
-            ais->type4.month = AIS_MONTH_NOT_AVAILABLE;
-            ais->type4.day = AIS_DAY_NOT_AVAILABLE;
+            // no need to set zeros, again.
+            // ais->type4.year = AIS_YEAR_NOT_AVAILABLE;
+            // ais->type4.month = AIS_MONTH_NOT_AVAILABLE;
+            // ais->type4.day = AIS_DAY_NOT_AVAILABLE;
             ais->type4.hour = AIS_HOUR_NOT_AVAILABLE;
             ais->type4.minute = AIS_MINUTE_NOT_AVAILABLE;
             ais->type4.second = AIS_SECOND_NOT_AVAILABLE;
@@ -105,8 +106,9 @@ int json_ais_read(const char *buf,
     } else if (strstr(buf, "\"type\":5,") != NULL) {
         status = json_read_object(buf, json_ais5, endptr);
         if (status == 0) {
-            ais->type5.month = AIS_MONTH_NOT_AVAILABLE;
-            ais->type5.day = AIS_DAY_NOT_AVAILABLE;
+            // no need to set zeros, again.
+            // ais->type5.month = AIS_MONTH_NOT_AVAILABLE;
+            // ais->type5.day = AIS_DAY_NOT_AVAILABLE;
             ais->type5.hour = AIS_HOUR_NOT_AVAILABLE;
             ais->type5.minute = AIS_MINUTE_NOT_AVAILABLE;
             (void)sscanf(eta, "%02u-%02uT%02u:%02uZ",
@@ -121,19 +123,20 @@ int json_ais_read(const char *buf,
             if (strstr(buf, "\"fid\":12,") != NULL) {
                 status = json_read_object(buf, json_ais6_fid12, endptr);
                 if (status == 0) {
-                    ais->type6.dac1fid12.lmonth = AIS_MONTH_NOT_AVAILABLE;
-                    ais->type6.dac1fid12.lday = AIS_DAY_NOT_AVAILABLE;
+                    // no need to set zeros, again.
+                    // ais->type6.dac1fid12.lmonth = AIS_MONTH_NOT_AVAILABLE;
+                    // ais->type6.dac1fid12.lday = AIS_DAY_NOT_AVAILABLE;
                     ais->type6.dac1fid12.lhour = AIS_HOUR_NOT_AVAILABLE;
                     ais->type6.dac1fid12.lminute = AIS_MINUTE_NOT_AVAILABLE;
+                    // ais->type6.dac1fid12.nmonth = AIS_MONTH_NOT_AVAILABLE;
+                    // ais->type6.dac1fid12.nday = AIS_DAY_NOT_AVAILABLE;
+                    ais->type6.dac1fid12.nhour = AIS_HOUR_NOT_AVAILABLE;
+                    ais->type6.dac1fid12.nminute = AIS_MINUTE_NOT_AVAILABLE;
                     (void)sscanf(departure, "%02u-%02uT%02u:%02uZ",
                                  &ais->type6.dac1fid12.lmonth,
                                  &ais->type6.dac1fid12.lday,
                                  &ais->type6.dac1fid12.lhour,
                                  &ais->type6.dac1fid12.lminute);
-                    ais->type6.dac1fid12.nmonth = AIS_MONTH_NOT_AVAILABLE;
-                    ais->type6.dac1fid12.nday = AIS_DAY_NOT_AVAILABLE;
-                    ais->type6.dac1fid12.nhour = AIS_HOUR_NOT_AVAILABLE;
-                    ais->type6.dac1fid12.nminute = AIS_MINUTE_NOT_AVAILABLE;
                     (void)sscanf(eta, "%02u-%02uT%02u:%02uZ",
                                  &ais->type6.dac1fid12.nmonth,
                                  &ais->type6.dac1fid12.nday,
@@ -155,7 +158,7 @@ int json_ais_read(const char *buf,
                 if (status == 0) {
                     // no need to set zeros, again.
                     // ais->type6.dac1fid18.month = AIS_MONTH_NOT_AVAILABLE;
-                    ais->type6.dac1fid18.day = AIS_DAY_NOT_AVAILABLE;
+                    // ais->type6.dac1fid18.day = AIS_DAY_NOT_AVAILABLE;
                     ais->type6.dac1fid18.hour = AIS_HOUR_NOT_AVAILABLE;
                     ais->type6.dac1fid18.minute = AIS_MINUTE_NOT_AVAILABLE;
                     (void)sscanf(arrival, "%02u-%02uT%02u:%02uZ",
@@ -169,8 +172,9 @@ int json_ais_read(const char *buf,
             else if (strstr(buf, "\"fid\":20,") != NULL) {
                 status = json_read_object(buf, json_ais6_fid20, endptr);
                 if (status == 0) {
-                    ais->type6.dac1fid20.month = AIS_MONTH_NOT_AVAILABLE;
-                    ais->type6.dac1fid20.day = AIS_DAY_NOT_AVAILABLE;
+                    // no need to set zeros, again.
+                    // ais->type6.dac1fid20.month = AIS_MONTH_NOT_AVAILABLE;
+                    // ais->type6.dac1fid20.day = AIS_DAY_NOT_AVAILABLE;
                     ais->type6.dac1fid20.hour = AIS_HOUR_NOT_AVAILABLE;
                     ais->type6.dac1fid20.minute = AIS_MINUTE_NOT_AVAILABLE;
                     (void)sscanf(arrival, "%02u-%02uT%02u:%02uZ",
@@ -188,8 +192,9 @@ int json_ais_read(const char *buf,
             else if (strstr(buf, "\"fid\":28,") != NULL) {
                 status = json_read_object(buf, json_ais6_fid28, endptr);
                 if (status == 0) {
-                    ais->type6.dac1fid28.month = AIS_MONTH_NOT_AVAILABLE;
-                    ais->type6.dac1fid28.day = AIS_DAY_NOT_AVAILABLE;
+                    // no need to set zeros, again.
+                    // ais->type6.dac1fid28.month = AIS_MONTH_NOT_AVAILABLE;
+                    // ais->type6.dac1fid28.day = AIS_DAY_NOT_AVAILABLE;
                     ais->type6.dac1fid28.hour = AIS_HOUR_NOT_AVAILABLE;
                     ais->type6.dac1fid28.minute = AIS_MINUTE_NOT_AVAILABLE;
                     (void)sscanf(start, "%02u-%02uT%02u:%02uZ",
@@ -222,8 +227,9 @@ int json_ais_read(const char *buf,
                 status = json_read_object(buf, json_ais6_fid21, endptr);
                 structured = true;
                 if (status == 0) {
-                    ais->type6.dac200fid21.month = AIS_MONTH_NOT_AVAILABLE;
-                    ais->type6.dac200fid21.day = AIS_DAY_NOT_AVAILABLE;
+                    // no need to set zeros, again.
+                    // ais->type6.dac200fid21.month = AIS_MONTH_NOT_AVAILABLE;
+                    // ais->type6.dac200fid21.day = AIS_DAY_NOT_AVAILABLE;
                     ais->type6.dac200fid21.hour = AIS_HOUR_NOT_AVAILABLE;
                     ais->type6.dac200fid21.minute = AIS_MINUTE_NOT_AVAILABLE;
                     (void)sscanf(eta, "%02u-%02uT%02u:%02u",
@@ -237,8 +243,9 @@ int json_ais_read(const char *buf,
                 status = json_read_object(buf, json_ais6_fid22, endptr);
                 structured = true;
                 if (status == 0) {
-                    ais->type6.dac200fid22.month = AIS_MONTH_NOT_AVAILABLE;
-                    ais->type6.dac200fid22.day = AIS_DAY_NOT_AVAILABLE;
+                    // no need to set zeros, again.
+                    // ais->type6.dac200fid22.month = AIS_MONTH_NOT_AVAILABLE;
+                    // ais->type6.dac200fid22.day = AIS_DAY_NOT_AVAILABLE;
                     ais->type6.dac200fid22.hour = AIS_HOUR_NOT_AVAILABLE;
                     ais->type6.dac200fid22.minute = AIS_MINUTE_NOT_AVAILABLE;
                     (void)sscanf(rta, "%02u-%02uT%02u:%02u",
@@ -269,7 +276,7 @@ int json_ais_read(const char *buf,
             if (strstr(buf, "\"fid\":11,") != NULL) {
                 status = json_read_object(buf, json_ais8_fid11, endptr);
                 if (status == 0) {
-                    ais->type8.dac1fid11.day = AIS_DAY_NOT_AVAILABLE;
+                    // ais->type8.dac1fid11.day = AIS_DAY_NOT_AVAILABLE;
                     ais->type8.dac1fid11.hour = AIS_HOUR_NOT_AVAILABLE;
                     ais->type8.dac1fid11.minute = AIS_MINUTE_NOT_AVAILABLE;
                     (void)sscanf(timestamp, "%02uT%02u:%02uZ",
@@ -282,8 +289,9 @@ int json_ais_read(const char *buf,
             else if (strstr(buf, "\"fid\":13,") != NULL) {
                 status = json_read_object(buf, json_ais8_fid13, endptr);
                 if (status == 0) {
-                    ais->type8.dac1fid13.fmonth = AIS_MONTH_NOT_AVAILABLE;
-                    ais->type8.dac1fid13.fday = AIS_DAY_NOT_AVAILABLE;
+                    // no need to set zeros, again.
+                    // ais->type8.dac1fid13.fmonth = AIS_MONTH_NOT_AVAILABLE;
+                    // ais->type8.dac1fid13.fday = AIS_DAY_NOT_AVAILABLE;
                     ais->type8.dac1fid13.fhour = AIS_HOUR_NOT_AVAILABLE;
                     ais->type8.dac1fid13.fminute = AIS_MINUTE_NOT_AVAILABLE;
                     (void)sscanf(departure, "%02u-%02uT%02u:%02uZ",
@@ -291,8 +299,9 @@ int json_ais_read(const char *buf,
                                  &ais->type8.dac1fid13.fday,
                                  &ais->type8.dac1fid13.fhour,
                                  &ais->type8.dac1fid13.fminute);
-                    ais->type8.dac1fid13.tmonth = AIS_MONTH_NOT_AVAILABLE;
-                    ais->type8.dac1fid13.tday = AIS_DAY_NOT_AVAILABLE;
+                    // no need to set zeros, again.
+                    // ais->type8.dac1fid13.tmonth = AIS_MONTH_NOT_AVAILABLE;
+                    // ais->type8.dac1fid13.tday = AIS_DAY_NOT_AVAILABLE;
                     ais->type8.dac1fid13.thour = AIS_HOUR_NOT_AVAILABLE;
                     ais->type8.dac1fid13.tminute = AIS_MINUTE_NOT_AVAILABLE;
                     (void)sscanf(eta, "%02u-%02uT%02u:%02uZ",
@@ -324,16 +333,19 @@ int json_ais_read(const char *buf,
             else if (strstr(buf, "\"fid\":23,") != NULL) {
                 status = json_read_object(buf, json_ais8_fid23, endptr);
                 if (status == 0) {
-                    ais->type8.dac200fid23.start_year = AIS_YEAR_NOT_AVAILABLE;
                     // no need to set zeros, again.
-                    /* ais->type8.dac200fid23.start_month =
+                    /* ais->type8.dac200fid23.start_year =
+                     *     AIS_YEAR_NOT_AVAILABLE;
+                     * ais->type8.dac200fid23.start_month =
                      *    AIS_MONTH_NOT_AVAILABLE; */
-                    ais->type8.dac200fid23.start_day = AIS_DAY_NOT_AVAILABLE;
+                    // ais->type8.dac200fid23.start_day = AIS_DAY_NOT_AVAILABLE;
                     ais->type8.dac200fid23.start_hour = AIS_HOUR_NOT_AVAILABLE;
                     ais->type8.dac200fid23.start_minute = AIS_MINUTE_NOT_AVAILABLE;
-                    ais->type8.dac200fid23.end_year = AIS_YEAR_NOT_AVAILABLE;
-                    ais->type8.dac200fid23.end_month = AIS_MONTH_NOT_AVAILABLE;
-                    ais->type8.dac200fid23.end_day = AIS_DAY_NOT_AVAILABLE;
+                    /* ais->type8.dac200fid23.end_year =
+                     *     AIS_YEAR_NOT_AVAILABLE;
+                     * ais->type8.dac200fid23.end_month =
+                     *     AIS_MONTH_NOT_AVAILABLE; */
+                    // ais->type8.dac200fid23.end_day = AIS_DAY_NOT_AVAILABLE;
                     ais->type8.dac200fid23.end_hour = AIS_HOUR_NOT_AVAILABLE;
                     ais->type8.dac200fid23.end_minute = AIS_MINUTE_NOT_AVAILABLE;
                     (void)sscanf(start, "%09u-%02u-%02uT%02u:%02u",
@@ -358,8 +370,9 @@ int json_ais_read(const char *buf,
             else if (strstr(buf, "\"fid\":27,") != NULL) {
                 status = json_read_object(buf, json_ais8_fid27, endptr);
                 if (status == 0) {
-                    ais->type8.dac1fid27.month = AIS_MONTH_NOT_AVAILABLE;
-                    ais->type8.dac1fid27.day = AIS_DAY_NOT_AVAILABLE;
+                    // no need to set zeros, again.
+                    // ais->type8.dac1fid27.month = AIS_MONTH_NOT_AVAILABLE;
+                    // ais->type8.dac1fid27.day = AIS_DAY_NOT_AVAILABLE;
                     ais->type8.dac1fid27.hour = AIS_HOUR_NOT_AVAILABLE;
                     ais->type8.dac1fid27.minute = AIS_MINUTE_NOT_AVAILABLE;
                     (void)sscanf(start, "%02u-%02uT%02u:%02uZ",
@@ -377,7 +390,7 @@ int json_ais_read(const char *buf,
             else if (strstr(buf, "\"fid\":31,") != NULL) {
                 status = json_read_object(buf, json_ais8_fid31, endptr);
                 if (status == 0) {
-                    ais->type8.dac1fid31.day = AIS_DAY_NOT_AVAILABLE;
+                    // ais->type8.dac1fid31.day = AIS_DAY_NOT_AVAILABLE;
                     ais->type8.dac1fid31.hour = AIS_HOUR_NOT_AVAILABLE;
                     ais->type8.dac1fid31.minute = AIS_MINUTE_NOT_AVAILABLE;
                     (void)sscanf(timestamp, "%02uT%02u:%02uZ",
